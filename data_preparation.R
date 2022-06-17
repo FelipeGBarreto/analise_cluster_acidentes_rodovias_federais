@@ -1,5 +1,5 @@
 #.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#
-#####  TCC - Estudo prévio do dataset #####
+#####   TCC - Preparação dos dados    #####
 #.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#
 
 # Bibliotecas
@@ -75,7 +75,7 @@ for (i in names(df1)){
 }
 
 
-df1$Data <- case_when(
+df1$data <- case_when(
   substr(df1$data_inversa,3,3) == '-' ~ as.Date(df1$data_inversa, format = '%d-%m-%Y'),
   substr(df1$data_inversa,3,3) == '/' ~ as.Date(df1$data_inversa, format = '%d/%m/%Y'),
   substr(df1$data_inversa,5,5) == '-' ~ as.Date(df1$data_inversa, format = '%Y-%m-%d'),
@@ -90,26 +90,66 @@ df1 %>% aggr(plot = T)
 #------------------------------------------------------------#
 # Acrescentando a variável de turno do dia
 #------------------------------------------------------------#
-#df1$Turno <- 
-df1$Turno <- substr(df1$horario, 1,2) %>% as.integer()
 
-df1$Turno <- case_when(
-  df1$Turno >= 6  & df1$Turno < 12 ~ 'Manhã',
-  df1$Turno >= 12 & df1$Turno < 18 ~ 'Tarde',
-  df1$Turno >= 18 & df1$Turno < 24 ~ 'Noite',
-  df1$Turno >= 0  & df1$Turno < 6  ~ 'Noite'
+df1$turno <- substr(df1$horario, 1,2) %>% as.integer()
+
+df1$turno <- case_when(
+  df1$turno >= 6  & df1$turno < 12 ~ 'Manhã',
+  df1$turno >= 12 & df1$turno < 18 ~ 'Tarde',
+  df1$turno >= 18 & df1$turno < 24 ~ 'Noite',
+  df1$turno >= 0  & df1$turno < 6  ~ 'Noite'
 )
 
+#------------------------------------------------------------#
+# Retirando todos os ids duplicados
+#------------------------------------------------------------#
+df1 <- df1 %>% distinct(id, .keep_all = T)
+
+
+#------------------------------------------------------------#
+# selecionando as variáveis desejadas
+#------------------------------------------------------------#
+
+df1 <- df1 %>% select(
+  id
+  ,data
+  ,turno
+  #,data_inversa
+  ,dia_semana
+  #,horario
+  ,uf
+  #,br
+  #,km
+  ,municipio
+  ,causa_acidente
+  ,tipo_acidente
+  ,classificacao_acidente
+  ,fase_dia
+  ,sentido_via
+  ,condicao_metereologica
+  ,tipo_pista
+  ,tracado_via
+  ,uso_solo
+  #,ano
+  ,pessoas
+  ,mortos
+  ,feridos_leves
+  ,feridos_graves
+  ,ilesos
+  ,ignorados
+  ,feridos
+  ,veiculos
+  #,latitude
+  #,longitude
+  #,regional
+  #,delegacia
+  #,uop
+)
+
+fwrite(df1, "/Users/felipebarreto/Desktop/dados_acidentes_tratados.csv", sep = ',')
 
 
 
-
-
-
-  
-  
-  
-  
   
   
   
