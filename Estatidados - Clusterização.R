@@ -64,7 +64,7 @@ for(i in names(dataset)){
     Encoding(dataset[[i]]) <- 'latin1'
   }
   
-  #Retirar todos os espaços vazios (início e fim)
+#Retirar todos os espaços vazios (início e fim)
   dataset[[i]] <- trimws(dataset[[i]])
 }
 
