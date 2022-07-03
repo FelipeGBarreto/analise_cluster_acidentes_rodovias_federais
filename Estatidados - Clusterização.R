@@ -149,35 +149,38 @@ names(clustering) <- c(names(var_quanti),'freq')
 # Análises descritivas
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 
-# Qaul a cidade que mais aparece no mapa de acidentes?
-clustering %>% filter(freq == max(clustering$freq))
+clustering %>% summary
 
-# Qaul a cidade que mais aparece no mapa de acidentes?
+# Qual a cidade que mais aparece no mapa de acidentes?
+clustering %>% filter(freq == max(clustering$freq))
+clustering %>% filter(freq == max(clustering$mortos))
+
+# Qual a cidade que mais aparece no mapa de acidentes?
 clustering %>% filter(freq == min(clustering$freq))
 
-clustering %>% filter(mortos == 706)
-clustering %>% filter(municipio == 'SAOPAULO')
-
 # Colocando a label de municipio para index
-clustering <- dataset %>% column_to_rownames('municipio')
-clustering %>% ver(10, "Acumulado 2007-2014")
+df_quanti <- clustering %>% 
+  select(-c(ignorados,veiculos)) %>% 
+  column_to_rownames('municipio')
 
 # Há alta correlação entre os dados, o que faz sentido
-chart.Correlation(dataset, method = "pearson")
-dataset <- dataset %>% select(c(Qtd, pessoas, mortos, veiculos))
-dataset %>% ver(10, "Variáveis Selecionadas (Top 10)")
-
-# Padronizando a base (mesma escala)
-dataset.pad <- scale(dataset) %>% data.frame()
-dataset.pad %>% ver(10, name_table = "Dados Padronizados")
-dataset.pad %>% summary() # média = 0 e desvio-padrão = 1
+chart.Correlation(df_quanti, method = "pearson")
 
 # Verificando se há valores vazios. Como não há, vamos seguir em frente
-dataset %>% aggr(plot = T)
+df_quanti %>% aggr(plot = T)
 
-for(i in 1:ncol(dataset)){
-  print(dataset[is.na(dataset[[i]]), ])
-}
+#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
+# Cluster
+#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
+
+df_quanti %>% arrange(desc(freq)) %>% ver(10, "Variáveis Selecionadas (Top 10)")
+
+# Padronizando a base (mesma escala)
+df.quanti.pad <- scale(df_quanti) %>% data.frame()
+df.quanti.pad %>% ver(10, name_table = "Dados Padronizados")
+
+df.quanti.pad %>% summary() # média = 0 e desvio-padrão = 1
+
 
 # ------------------------------------------------------------------------------
 # Começando a clusterização --> IMPORTANTE: Contexto do Negócio
@@ -186,22 +189,22 @@ for(i in 1:ncol(dataset)){
 # Verificando as possíveis quantidade de clusters
 grid.arrange(
   # Método Elbow (Cotovelo) --> Variabilidade dentro do grupo?
-  fviz_nbclust(dataset.pad, kmeans, method = "wss") +
+  fviz_nbclust(df.quanti.pad, kmeans, method = "wss") +
     geom_vline(xintercept = 4, linetype = 2) +
     labs(title = "Número Ótimo de Clusters - K-Means"),
   
   # Método da Silhouette --> Quão bom foi o agrupamento com a alocação da observação
   # Quanto maior for o coef. silhouette, melhor, já que favorece o agrupamento.
-  fviz_nbclust(dataset.pad, kmeans, method = "silhouette") +
+  fviz_nbclust(df.quanti.pad, kmeans, method = "silhouette") +
     geom_vline(xintercept = 4, linetype = 2) +
     labs(title = "Número Ótimo de Clusters - K-Means")
 )
 
 
-#db <- fpc::dbscan(dataset.pad ,eps = 0.1, MinPts = 6)
+#db <- fpc::dbscan(df.quanti.pad ,eps = 0.1, MinPts = 6)
 #Visualize DBSCAN Clustering
 #dbcs <- fviz_cluster(db,
- #                    data=dataset.pad,
+ #                    data=df.quanti.pad,
   #                   stand = FALSE,
    #                  show.clust.cent = FALSE,
     #                 geom = "point",
@@ -212,10 +215,10 @@ grid.arrange(
 # método do cotovelo --> Percentual de variância explicada com o aumento de clusters
 pct_var_explicada <- data.frame(Clusters = 2:10,
                                 Percentual = 0)
-totalss <- kmeans(dataset.pad, centers = 10)$totss
+totalss <- kmeans(df.quanti.pad, centers = 10)$totss
 for(i in 2:10){
   pct_var_explicada[i-1, "Percentual"] <- round((
-    (kmeans(dataset.pad, centers = i)$betweenss)*100/totalss), 2)
+    (kmeans(df.quanti.pad, centers = i)$betweenss)*100/totalss), 2)
 }
 pct_var_explicada %>% ver(10,"Variância Explicada por Cluster")
 
