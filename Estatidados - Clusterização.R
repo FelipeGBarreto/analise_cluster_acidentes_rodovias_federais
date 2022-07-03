@@ -43,33 +43,31 @@ if(sum(as.numeric(!pacotes %in% installed.packages())) != 0){
 
 # Conhecendo o dataset
 #acidentes$Qtd <- 1
-path <- "/Users/felipebarreto/Desktop/Estudo de Acidentes nas Rodovias Federais/Dados/"
+path <- "/Users/felipebarreto/Desktop/dados_acidentes_tratados.csv"
 
-# Lendo e juntando todos os csv
-files_list <- list.files( # lista de arquivos csv
-    path, 
-    full.names=TRUE) %>%
-  sapply(read.csv2, simplify = F)
 
-dataset <- rbindlist(
-    files_list, 
-    idcol = NULL, 
-    fill = T) %>% 
-  unique()
+df <- read.csv2(path, sep = ',')
 
 # Transaformando o encoding 
-for(i in names(dataset)){
+for(i in names(df)){
   # encoding
-  if( class(dataset[[i]]) == 'character'){
-    Encoding(dataset[[i]]) <- 'latin1'
+  if(class(df[[i]]) == 'character'){
+    Encoding(df[[i]]) <- 'latin1'
   }
   
 #Retirar todos os espaços vazios (início e fim)
-  dataset[[i]] <- trimws(dataset[[i]])
+  df[[i]] <- trimws(df[[i]])
+  
+# Lower case 
+  df[[i]] <- tolower(df[[i]])
 }
 
+
 # transaformando a data
-dataset$data_inversa <- as.Date(dataset$data_inversa, format='%Y-%m-%d')
+df$data <- as.Date(df$data, format='%Y-%m-%d')
+
+df['turno'][df['turno'] == 'ManhÃ£'] <- 'Manhã'
+
 
 # função para melhorar a visualização
 ver <- function(df, n=5, name_table = "Base de Dados"){
@@ -79,46 +77,90 @@ ver <- function(df, n=5, name_table = "Base de Dados"){
     scroll_box(width = "100%", height = "300px")
 }
 
-acidentes <- copy(dataset)
 
 # Variáveis categóricas e variáveis numéricas
-acidentes %>% dim()
-acidentes %>% ver(10)
-acidentes %>% str()
+df %>% dim()
+df %>% ver(10)
+df %>% str()
 
-# Análise de correspondência para as variáveis categóricas
+#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
+# ANÁLISE DE CORRESPONDÊNCIA - Variáveis categóricas
+#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 
-# Separando somente as variáveis MÉTRICAS
-cols <- c("municipio","Qtd","pessoas","mortos","feridos_leves","feridos_graves",
-          "ilesos","ignorados","feridos","veiculos")
+# ANACOR / ACM - Análise de correspondência para as variáveis categóricas
 
-# Calculando a SOMA de cada variável de acidentes dos municípios para termos o
-# volume histórico (2007-2020)
-dataset <- acidentes %>% 
-  select(cols) %>% 
-  group_by(municipio) %>% summarise(across(everything(), list(sum)))
-dataset %>% ver(10, "Acumulado 2007-2014")
+# Variáveis categóricas
+var_categ <- df %>% select(
+  id
+  ,data
+  ,turno
+  ,dia_semana
+  ,uf
+  ,municipio
+  ,causa_acidente
+  ,tipo_acidente
+  ,classificacao_acidente
+  ,fase_dia
+  ,sentido_via
+  ,condicao_metereologica
+  ,tipo_pista
+  ,tracado_via
+  ,uso_solo
+)
 
-# Obs: Percebe-se que há valores duplicados, devido a espaços vazios nas variáveis
-dataset$municipio <- str_replace_all(dataset$municipio, fixed(" "), "")
 
-dataset <- dataset %>% 
-  group_by(municipio) %>% summarise(across(everything(), list(sum)))
+#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
+# CLUSTERING - Variáveis Quntitativas (métricas)
+#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
+quantitative_variables <- c(
+  'pessoas'
+  ,'mortos'
+  ,'feridos_leves'
+  ,'feridos_graves'
+  ,'ilesos'
+  ,'ignorados'
+  ,'feridos'
+  ,'veiculos'
+)
 
-colnames(dataset) <- cols
-dataset %>% ver(10,  "Acumulado 2007-2014")
+var_quanti <- df %>% select(
+  municipio
+  ,quantitative_variables
+)
 
-dataset %>% summary()
+for (i in quantitative_variables){
+  var_quanti[[i]] <- as.numeric(var_quanti[[i]])
+}
 
-# Alguns destaques
-dataset %>% filter(Qtd == 25516)
-dataset %>% filter(pessoas == 1)
-dataset %>% filter(mortos == 706)
-dataset %>% filter(municipio == 'SAOPAULO')
+clustering <- var_quanti %>%  
+  group_by(municipio) %>% 
+  summarise(
+    across(
+      everything(),
+      list(sum)
+      ),
+    freq = n()
+  ) %>% data.frame()
+
+names(clustering) <- c(names(var_quanti),'freq')
+
+
+#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
+# Análises descritivas
+#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
+
+# Qaul a cidade que mais aparece no mapa de acidentes?
+clustering %>% filter(freq == max(clustering$freq))
+
+# Qaul a cidade que mais aparece no mapa de acidentes?
+clustering %>% filter(freq == min(clustering$freq))
+
+clustering %>% filter(mortos == 706)
+clustering %>% filter(municipio == 'SAOPAULO')
 
 # Colocando a label de municipio para index
-dataset <- dataset %>% column_to_rownames('municipio')
-dataset %>% ver(10, "Acumulado 2007-2014")
+clustering <- dataset %>% column_to_rownames('municipio')
+clustering %>% ver(10, "Acumulado 2007-2014")
 
 # Há alta correlação entre os dados, o que faz sentido
 chart.Correlation(dataset, method = "pearson")
