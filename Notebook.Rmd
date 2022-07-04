@@ -1,0 +1,110 @@
+---
+title: "Método K-Means Clusterização"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+### Instalação dos pacotes
+```{r}
+pacotes <- c(
+  "tidyverse",    # para manipulação de dados
+  "cluster",      # algorítimo de cluster
+  "dendextend",   # compara dendogramas (melhor p/ Mod. Hierárquicos)
+  "factoextra",   # Algoritmo de cluster e visualização
+  "fpc",          # Algoritmo de cluster e visualização
+  "gridExtra",    # Para a função grid.arrange
+  "tibble",       # Transformar Uma coluna específica em index
+  "kableExtra",   # Visualização no viwer, para facilitar
+  "PerformanceAnalytics",   # Correlação dos dados
+  "VIM",          # Verificação de valores nulos
+  "plotly",       # Visualização de dados
+  "data.table"
+)
+
+if(sum(as.numeric(!pacotes %in% installed.packages())) != 0){
+  instalador <- pacotes[!pacotes %in% installed.packages()]
+  for(i in 1:length(instalador)) {
+    install.packages(instalador, dependencies = T)
+    break()}
+  sapply(pacotes, require, character = T) 
+} else {
+  sapply(pacotes, require, character = T) 
+}
+
+# Funções
+ver <- function(df, n=5, name_table = "Base de Dados"){
+  df %>% head(n) %>% 
+    kbl(caption = paste("Tabela:",name_table)) %>%
+    kable_classic(full_width = F, html_font = "")%>% 
+    scroll_box(width = "100%", height = "300px")
+}
+```
+
+### Importando as base
+```{r}
+path <- "/Users/felipebarreto/Desktop/dados_acidentes_tratados.csv"
+base.original <- read.csv2(path, sep = ',')
+
+df <- copy(base.original)
+
+for (i in names(df)){
+  if(class(df[[i]]) == 'character'){
+    Encoding(df[[i]]) <- 'latin1'
+  }
+  df[[i]] <- trimws(df[[i]])
+  df[[i]] <- tolower(df[[i]])
+}
+
+df %>% ver()
+```
+
+### Separando as variáveis quantitativas
+```{r}
+quantitative_variables <- c(
+  'pessoas'
+  ,'mortos'
+  ,'feridos_leves'
+  ,'feridos_graves'
+  ,'ilesos'
+  ,'ignorados'
+  ,'feridos'
+)
+
+df.quanti <- df %>% select(
+  municipio,
+  all_of(quantitative_variables)) %>% group_by(municipio) %>% 
+  summarise(
+    across(
+      everything(),
+      list(sum)
+    ),
+    freq = n()
+  ) %>% column_to_rownames('municipio')
+
+names(df.quanti) <- c(quantitative_variables,'freq')
+
+
+df.quanti %>% ver
+
+
+```
+#### Corelação dos dados
+```{r}
+chart.Correlation(df.quanti, method = "pearson")
+```
+
+#### Algumas estatísticas
+```{r}
+df.quanti %>% summary
+```
+
+
+
+
+
+
+
+
