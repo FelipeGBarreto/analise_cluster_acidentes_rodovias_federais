@@ -44,7 +44,6 @@ if(sum(as.numeric(!pacotes %in% installed.packages())) != 0){
 # Conhecendo o dataset
 path <- "/Users/felipebarreto/Desktop/dados_acidentes_tratados.csv"
 
-
 df <- read.csv2(path, sep = ',')
 
 # Transaformando o encoding 
@@ -65,7 +64,7 @@ for(i in names(df)){
 # transaformando a data
 df$data <- as.Date(df$data, format='%Y-%m-%d')
 
-df['turno'][df['turno'] == 'ManhÃ£'] <- 'Manhã'
+df['turno'][df['turno'] %in% c('ManhÃ£', 'Manhã£')] <- 'Manhã'
 
 
 # função para melhorar a visualização
@@ -132,7 +131,7 @@ var_categ_agg <- var_categ %>%
    freq = n()
   ) %>% arrange(municipio, desc(freq))
   
-#var_categ %>% select(uso_solo) %>% distinct()
+#var_categ %>% select(tracado_via) %>% distinct()
 
 
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
