@@ -64,8 +64,64 @@ for(i in names(df)){
 # transaformando a data
 df$data <- as.Date(df$data, format='%Y-%m-%d')
 
-df['turno'][df['turno'] %in% c('ManhÃ£', 'Manhã£')] <- 'Manhã'
+df$turno <- case_when(
+  df$turno %in% c(tolower('manhã£')) ~ 'manhã',
+  df$turno %in% c(tolower('tarde')) ~ 'tarde',
+  df$turno %in% c(tolower('noite')) ~ 'noite',
+)
 
+df$is_night <- case_when(
+  df$turno %in% c('manhã','tarde') ~ FALSE,
+  df$turno %in% c('noite') ~ TRUE
+)
+
+df$dia_semana <- case_when(
+  df$dia_semana %in% c('segunda','segunda-feira') ~ 'segunda',
+  df$dia_semana %in% c('terça','terça-feira') ~ 'terça',
+  df$dia_semana %in% c('quarta','quarta-feira') ~ 'quarta',
+  df$dia_semana %in% c('quinta','quinta-feira') ~ 'quinta',
+  df$dia_semana %in% c('sexta','sexta-feira') ~ 'sexta',
+  df$dia_semana %in% c('sabado','sábado') ~ 'sabado',
+  df$dia_semana %in% c('domingo') ~ 'domingo'
+)
+
+df$is_weekend <- case_when(
+  df$dia_semana %in% c('segunda','terça','quarta','quinta') ~ FALSE,
+  df$dia_semana %in% c('sexta','sabado','domingo') ~ TRUE
+)
+
+df %>% select(tipo_pista) %>% distinct()
+
+df$tipo_pista <- case_when(
+  df$tipo_pista == 'simples' ~ 'simples',
+  df$tipo_pista %in% c('múltipla','multipla','dupla') ~ 'dupla/multipla'
+)
+
+df$is_single_lane <- case_when( #se é pisca única
+  df$tipo_pista %in% ('simples') ~ TRUE,
+  TRUE ~ FALSE
+)
+
+x <- 1:50
+case_when(
+  x %% 35 == 0 ~ "fizz buzz",
+  x %% 5 == 0 ~ "fizz",
+  x %% 7 == 0 ~ "buzz",
+  TRUE ~ as.character(x)
+)
+df %>% head() %>% View()
+
+df %>% select(tracado_via) %>% distinct()
+
+df$tracado_via <- case_when(
+  df$tracado_via %in% c('reta') ~ 'reta',
+  df$tracado_via %in% c('curva','cruzamento') ~ 'curva/cruzamento',
+  df$tracado_via %in% c('rotatória',
+                        'interseção de vias',
+                        'desvio temporário',
+                        'retorno regulamentado') ~ 'rotatória/interseção/desvio/retorno',
+  df$tracado_via %in% c('viaduto','ponte','túneo') ~ 'viduto/ponte/túneo'
+)
 
 # função para melhorar a visualização
 ver <- function(df, n=5, name_table = "Base de Dados"){
@@ -92,7 +148,9 @@ var_categ <- df %>% select(
   id
   ,data
   ,turno
+  ,is_night
   ,dia_semana
+  ,is_weekend
   ,uf
   ,municipio
   ,causa_acidente
@@ -102,31 +160,23 @@ var_categ <- df %>% select(
   ,sentido_via
   ,condicao_metereologica
   ,tipo_pista
+  ,is_single_lane
   ,tracado_via
   ,uso_solo
 )
 
-var_categ$dia_semana <- case_when(
-  var_categ$dia_semana == 'segunda-feira' ~ 'segunda',
-  var_categ$dia_semana == 'terça-feira' ~ 'terça',
-  var_categ$dia_semana == 'quarta-feira' ~ 'quarta',
-  var_categ$dia_semana == 'quinta-feira' ~ 'quinta',
-  var_categ$dia_semana == 'sexta-feira' ~ 'sexta'
-)
-
-var_categ$tipo_pista <- case_when(
-  var_categ$tipo_pista == 'simples' ~ 'simples',
-  var_categ$tipo_pista %in% c('multipla','dupla') ~ 'dupla/multipla'
-)
-
 var_categ_agg <- var_categ %>% 
   group_by(municipio
-           ,turno
-           ,dia_semana
+           #,turno
+           ,is_night
+           ,is_weekend
+           #,dia_semana
            #,causa_acidente ## AVALIAR SE É POSSÍVEL CLUSTERIZAR
            #,tipo_acidente  ## AVALIAR SE É POSSÍVEL CLUSTERIZAR
-           ,tipo_pista
-           ,tracado_via) %>% 
+           #,tipo_pista
+           ,is_single_lane
+           ,tracado_via
+           ) %>% 
   summarise(
    freq = n()
   ) %>% arrange(municipio, desc(freq))
@@ -166,7 +216,7 @@ clustering <- var_quanti %>%
       list(sum)
       ),
     freq = n()
-  ) %>% data.frame()
+  ) %>% arrange(desc(freq))  %>% data.frame()
 
 names(clustering) <- c(names(var_quanti),'freq')
 
@@ -227,7 +277,7 @@ grid.arrange(
   # Quanto maior for o coef. silhouette, melhor, já que favorece o agrupamento.
   fviz_nbclust(
     df.quanti.pad,
-    kmeans, 
+    kmeans,
     method = "silhouette") +
   geom_vline(xintercept = 5, linetype = 2) +
     labs(title = "Número Ótimo de Clusters - K-Means")
@@ -324,9 +374,20 @@ opc_cluster[[opcao_clusters]]$size # tamanho
 opc_cluster[[opcao_clusters]]$centers # médias
 
 # Médias das variáveis de cada grupo - Médias de grupo
-centers <- data.frame(cluster = factor(1:(opcao_clusters+2)), opc_cluster[[opcao_clusters]]$centers)
-centers <- as.data.frame(t(centers %>% select(-cluster)))
-names(centers) <- paste("Cluster", 1:(opcao_clusters+2))
+centers <- data.frame(
+  cluster = factor(1:(opcao_clusters+2)), 
+  opc_cluster[[opcao_clusters]]$centers
+)
+
+centers <- as.data.frame(
+  t(centers %>% select(-cluster))
+)
+
+names(centers) <- paste(
+  "Cluster", 
+  1:(opcao_clusters+2)
+)
+
 centers <- rownames_to_column(.data = centers, var = 'Variavel')
 
 centers %>% ver(n = 7, name_table = "Centróides com Dados Padronizados")
