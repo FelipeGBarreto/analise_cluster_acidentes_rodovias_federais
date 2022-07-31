@@ -399,6 +399,7 @@ centers <- gather(centers, "Cluster", "Mean", -Variavel)
 centers %>% ver(15)
 
 centers$Color <- centers$Mean > 0 
+centers %>% ver(n=50)
 
 # Análise de médias com o dataset de variáveis quantitativas padronizado
 ggplot(centers, 
@@ -420,6 +421,10 @@ opc_cluster[[opcao_clusters]]$centers # médias
 # Grupos desequilibrados (tamanho) podem gerar outliers distantes OU grupos
 # de registros muito distintos do resto dos dados (o que necessita de maior inspeção)
 
+#....................#
+### CONTINUAR AQUI ###
+#....................#
+
 # Adicionando a variável "Cluster" e UF no dataset
 df.quanti.clusters <- rownames_to_column(df_quanti, 'municipio') %>% 
   mutate(
@@ -431,6 +436,8 @@ df.quanti.clusters <- rownames_to_column(df_quanti, 'municipio') %>%
     by = 'municipio'
   ) %>% 
   mutate(uf = factor('uf'))
+
+df.quanti.clusters %>% ver()
 
 df.quanti.clusters %>% summary
 df.quanti.clusters %>% ver
