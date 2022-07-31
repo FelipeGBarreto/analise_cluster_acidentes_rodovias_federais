@@ -44,7 +44,6 @@ if(sum(as.numeric(!pacotes %in% installed.packages())) != 0){
 # Conhecendo o dataset
 path <- "/Users/felipebarreto/Desktop/dados_acidentes_tratados.csv"
 
-
 df <- read.csv2(path, sep = ',')
 
 # Transaformando o encoding 
@@ -65,7 +64,7 @@ for(i in names(df)){
 # transaformando a data
 df$data <- as.Date(df$data, format='%Y-%m-%d')
 
-df['turno'][df['turno'] == 'ManhÃ£'] <- 'Manhã'
+df['turno'][df['turno'] %in% c('ManhÃ£', 'Manhã£')] <- 'Manhã'
 
 
 # função para melhorar a visualização
@@ -107,6 +106,33 @@ var_categ <- df %>% select(
   ,uso_solo
 )
 
+var_categ$dia_semana <- case_when(
+  var_categ$dia_semana == 'segunda-feira' ~ 'segunda',
+  var_categ$dia_semana == 'terça-feira' ~ 'terça',
+  var_categ$dia_semana == 'quarta-feira' ~ 'quarta',
+  var_categ$dia_semana == 'quinta-feira' ~ 'quinta',
+  var_categ$dia_semana == 'sexta-feira' ~ 'sexta'
+)
+
+var_categ$tipo_pista <- case_when(
+  var_categ$tipo_pista == 'simples' ~ 'simples',
+  var_categ$tipo_pista %in% c('multipla','dupla') ~ 'dupla/multipla'
+)
+
+var_categ_agg <- var_categ %>% 
+  group_by(municipio
+           ,turno
+           ,dia_semana
+           #,causa_acidente ## AVALIAR SE É POSSÍVEL CLUSTERIZAR
+           #,tipo_acidente  ## AVALIAR SE É POSSÍVEL CLUSTERIZAR
+           ,tipo_pista
+           ,tracado_via) %>% 
+  summarise(
+   freq = n()
+  ) %>% arrange(municipio, desc(freq))
+  
+#var_categ %>% select(tracado_via) %>% distinct()
+
 
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 # CLUSTERING - Variáveis Quntitativas (métricas)
@@ -131,6 +157,7 @@ for (i in quantitative_variables){
   var_quanti[[i]] <- as.numeric(var_quanti[[i]])
 }
 
+# Agrupando os dados com as quantidades totais por município
 clustering <- var_quanti %>%  
   group_by(municipio) %>% 
   summarise(
