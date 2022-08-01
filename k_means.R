@@ -29,7 +29,9 @@ pacotes <- c("tidyverse",    # para manipulação de dados
              "PerformanceAnalytics",   # Correlação dos dados
              "VIM",          # Verificação de valores nulos
              "plotly",       # Visualização de dados
-             "data.table")
+             "data.table",
+             "hrbrthemes"    # graph theme
+             )
 
 if(sum(as.numeric(!pacotes %in% installed.packages())) != 0){
   instalador <- pacotes[!pacotes %in% installed.packages()]
@@ -402,12 +404,15 @@ centers$Color <- centers$Mean > 0
 centers %>% ver(n=50)
 
 # Análise de médias com o dataset de variáveis quantitativas padronizado
+avg.graph.1 <- ggplotly(
 ggplot(centers, 
        aes(x = Variavel, y = Mean, fill = Color)) +
   geom_bar(stat = "identity",
            position = "identity",
            width = .75) +
   facet_grid(Cluster ~ ., scales = 'free_y')
+)
+avg.graph.1
 
 #Revendo o tamanho dos grupos
 opc_cluster[[opcao_clusters]]$size # tamanho
@@ -435,17 +440,18 @@ df.quanti.clusters <- rownames_to_column(df_quanti, 'municipio') %>%
     #df %>% select(municipio, factor('uf')) %>% distinct(),
     by = 'municipio'
   ) %>% 
-  mutate(uf = factor('uf'))
+  mutate(uf = factor(uf))
 
 df.quanti.clusters %>% ver()
 
 df.quanti.clusters %>% summary
-df.quanti.clusters %>% ver
 
 
-
-df.quanti.mean <- df.quanti.clusters %>% select(-c(municipio,uf)) %>% 
-  group_by(cluster) %>% summarise(
+## MESMO GRÁFICO, MAS COM AS MÉDIAS REAIS
+df.quanti.mean  <- df.quanti.clusters %>% 
+  select(-c(municipio,uf)) %>% 
+  group_by(cluster) %>% 
+  summarise(
     across(
       everything(),
       list(mean)
@@ -460,20 +466,89 @@ df.quanti.mean <- df.quanti.clusters %>% select(-c(municipio,uf)) %>%
     feridos = feridos_1,
     freq = freq_1
   ) %>% 
-  mutate(cluster = paste('Cluster', cluster)) %>% 
+  mutate(cluster = paste('Cluster', cluster))
+
+df.quanti.mean.melt <- df.quanti.mean %>% 
   reshape2::melt(.) %>% rename(Mean = value, Variavel = variable)
 
 
 opc_cluster[[opcao_clusters]]$size
 
-ggplotly(
-ggplot(df.quanti.mean, 
+avg.graph.2 <- ggplotly(
+ggplot(df.quanti.mean.melt, 
        aes(x = Variavel, y = Mean, fill = Variavel)) +
   geom_bar(stat = "identity",
            position = "identity",
            width = .75) +
   facet_grid(cluster ~ ., scales = 'free_y')
 )
+avg.graph.2
+
+##### share de cada variável pela média de pessoas envolvidas nos acidentes #####
+# Representatividade média de cada variável
+df.quanti.mean.share <- df.quanti.mean %>% 
+  mutate(
+    mortos = round(100 * mortos / pessoas, 2),
+    feridos_leves = round(100 * feridos_leves / pessoas, 2),
+    feridos_graves = round(100 * feridos_graves / pessoas, 2),
+    ilesos = round(100 * ilesos / pessoas, 2),
+    feridos = round(100 * feridos / pessoas, 2)
+  ) %>% 
+  select(cluster,ilesos,feridos,feridos_leves,feridos_graves,mortos) %>% 
+  reshape2::melt(.) %>% 
+  mutate(
+    Cluster_Variavel = paste0(
+                        substr(cluster,1,1),
+                        substr(cluster,9,9),
+                        '_',
+                        variable
+                      ),
+    'Mean' = value
+  ) %>% arrange(variable,cluster)
+  
+
+#https://r-graph-gallery.com/304-highlight-a-group-in-lollipop.html
+colors_labels = case_when(
+      df.quanti.mean.share$Cluster_Variavel %like% c("mortos") ~ 'red',
+      df.quanti.mean.share$Cluster_Variavel %like% c("ilesos") ~ 'blue',
+      df.quanti.mean.share$Cluster_Variavel %like% c("feridos_leves") ~ '#d1a5a5',
+      df.quanti.mean.share$Cluster_Variavel %like% c("feridos_graves") ~ '#cc7f7f',
+      df.quanti.mean.share$Cluster_Variavel %like% c("feridos") ~ '#7d7979'
+    )
+
+ggplotly(
+df.quanti.mean.share  %>% 
+  mutate( #ordenar o eixo Y
+    Cluster_Variavel = fct_reorder(Cluster_Variavel, 
+    desc(as.integer((variable))))
+    ) %>% 
+  ggplot(aes(x=Mean, y=Cluster_Variavel, col = cluster)) +
+    geom_segment(
+      aes(x=0, xend=Mean, y=Cluster_Variavel, yend=Cluster_Variavel), 
+      #color=ifelse(df.quanti.mean.share$Cluster_Variavel %like% c("mortos"), "red", "#9BB0B2"), 
+      color = colors_labels,
+      size=ifelse(df.quanti.mean.share$Cluster_Variavel %like% c("mortos"), 1.1, 0.7)
+    ) +
+    geom_point(
+      #color=ifelse(df.quanti.mean.share$Cluster_Variavel %like% c("mortos"), "red", "#9BB0B2"), 
+      color = colors_labels,
+      size=ifelse(df.quanti.mean.share$Cluster_Variavel %like% c("mortos"), 4, 2)
+    ) +
+    geom_text(data=df.quanti.mean.share, aes( x=Mean, y=Cluster_Variavel, label=Mean),                 , 
+            color=colors_labels, 
+            size=3 , angle=0, fontface="bold"
+            ) + 
+    theme_ipsum() +
+    #coord_flip() +
+    theme(
+      legend.position="none"
+    ) +
+    xlab("Média") +
+    ylab("Clusters e Variáveis Quantitativas") +
+    ggtitle("Share de Médias com a quantidade de envolvidos nos acidentes (%)")
+) 
+
+#### OBSERVAÇÃO: o avg.graph.1 não é interessante para a interpretação!!
 
 # Plotando os centros dos grupos em dimensões duas a duas
 # ------------------------------------------------------------------------------
