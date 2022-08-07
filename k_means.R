@@ -30,7 +30,8 @@ pacotes <- c("tidyverse",    # para manipulação de dados
              "VIM",          # Verificação de valores nulos
              "plotly",       # Visualização de dados
              "data.table",
-             "hrbrthemes"    # graph theme
+             "hrbrthemes",   # graph theme
+             "fastDummies"   # Gerar variáveis dummies
              )
 
 if(sum(as.numeric(!pacotes %in% installed.packages())) != 0){
@@ -62,7 +63,6 @@ for(i in names(df)){
   df[[i]] <- tolower(df[[i]])
 }
 
-
 # transaformando a data
 df$data <- as.Date(df$data, format='%Y-%m-%d')
 
@@ -92,8 +92,6 @@ df$is_weekend <- case_when(
   df$dia_semana %in% c('sexta','sabado','domingo') ~ TRUE
 )
 
-df %>% select(tipo_pista) %>% distinct()
-
 df$tipo_pista <- case_when(
   df$tipo_pista == 'simples' ~ 'simples',
   df$tipo_pista %in% c('múltipla','multipla','dupla') ~ 'dupla/multipla'
@@ -104,40 +102,82 @@ df$is_single_lane <- case_when( #se é pisca única
   TRUE ~ FALSE
 )
 
-x <- 1:50
-case_when(
-  x %% 35 == 0 ~ "fizz buzz",
-  x %% 5 == 0 ~ "fizz",
-  x %% 7 == 0 ~ "buzz",
-  TRUE ~ as.character(x)
-)
-df %>% head() %>% View()
-
-df %>% select(tracado_via) %>% distinct()
+### Tipos de Traçado de via
+## Tipo 1: reta
+# 'reta'
+## Tipo 2: 
+# 'curva','cruzamento','rotatória','interseção de vias','desvio temporário','retorno regulamentado'
+## Tipo 3: 
+# 'viaduto','ponte','túneo'
 
 df$tracado_via <- case_when(
-  df$tracado_via %in% c('reta') ~ 'reta',
-  df$tracado_via %in% c('curva','cruzamento') ~ 'curva/cruzamento',
-  df$tracado_via %in% c('rotatória',
-                        'interseção de vias',
-                        'desvio temporário',
-                        'retorno regulamentado') ~ 'rotatória/interseção/desvio/retorno',
-  df$tracado_via %in% c('viaduto','ponte','túneo') ~ 'viduto/ponte/túneo'
+  df$tracado_via %in% c('reta') ~ 'tipo_1',
+  df$tracado_via %in% c('curva','cruzamento',
+                        'rotatória','interseção de vias',
+                        'desvio temporário','retorno regulamentado') ~ 'tipo_2',
+  df$tracado_via %in% c('viaduto','ponte','túneo') ~ 'tipo_3'
 )
 
-# função para melhorar a visualização
-ver <- function(df, n=5, name_table = "Base de Dados"){
-  df %>% head(n) %>% 
-    kbl(caption = paste("Tabela:",name_table)) %>%
-    kable_classic(full_width = F, html_font = "")%>% 
-    scroll_box(width = "100%", height = "300px")
+# Criando dummies das variáveis de traçado de via
+df <- dummy_cols(
+  df, select_columns = 'tracado_via'
+)
+
+for(column in c('tracado_via_tipo_1','tracado_via_tipo_2','tracado_via_tipo_3')){
+  df[[column]] = ifelse(df[[column]] %in% c(1,'1'), T, F)
 }
+
+#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
+# FUNÇÕES
+#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
+# Função para pegar o nome da variável
+get_name <- function(name, env = caller_env()) {
+  name_sym <- sym(name)
+  eval(name_sym, env)
+}
+
+# função para melhorar a visualização
+ver <- function(data, 
+                n=5, 
+                name_table = "Base de Dados"){
+    base_name = match.call()$data
+    data %>% head(n) %>% 
+      kbl(
+        caption = paste("Tabela:", name_table, '|', 'Base de dados:', base_name)
+        ) %>%
+      kable_classic(full_width = F, html_font = "") %>% 
+      scroll_box(width = "100%", height = "300px")
+}
+
+# Função para calcular o share de TRUE pelo pelo total da variável
+share_var <- function(var, nome){
+  share_var <- df %>% select(municipio, sym(variavel)) %>% 
+    dummy_cols(
+    select_columns = 'tracado_via_tipo_1'
+    ) %>% 
+    select(
+      municipio,
+      sym(paste0(variavel,'_FALSE')),
+      sym(paste0(variavel,'_TRUE'))
+    ) %>% 
+    group_by(municipio) %>% 
+    summarise(
+      pct_share = sum(get_name(paste0(variavel,'_TRUE'))) / n()
+    )
+
+    return(share_var)
+}
+##############################################################################
+
 
 
 # Variáveis categóricas e variáveis numéricas
-df %>% dim()
-df %>% ver(10)
+ver(df)
 df %>% str()
+
+share_var('tracado_via_tipo_1') %>% 
+  rename(share_tracado_via_tipo_1 = pct_share)
+
 
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 # ANÁLISE DE CORRESPONDÊNCIA - Variáveis categóricas
@@ -146,45 +186,36 @@ df %>% str()
 # ANACOR / ACM - Análise de correspondência para as variáveis categóricas
 
 # Variáveis categóricas
+#causa_acidente --> avaliar se é possível clusterizar
+#tipo_acidente  --> avaliar se é possível clusterizar
 var_categ <- df %>% select(
-  id
-  ,data
-  ,turno
+  municipio
   ,is_night
-  ,dia_semana
   ,is_weekend
-  ,uf
-  ,municipio
-  ,causa_acidente
-  ,tipo_acidente
-  ,classificacao_acidente
-  ,fase_dia
-  ,sentido_via
-  ,condicao_metereologica
-  ,tipo_pista
   ,is_single_lane
-  ,tracado_via
-  ,uso_solo
-)
-
-var_categ_agg <- var_categ %>% 
-  group_by(municipio
-           #,turno
-           ,is_night
-           ,is_weekend
-           #,dia_semana
-           #,causa_acidente ## AVALIAR SE É POSSÍVEL CLUSTERIZAR
-           #,tipo_acidente  ## AVALIAR SE É POSSÍVEL CLUSTERIZAR
-           #,tipo_pista
-           ,is_single_lane
-           ,tracado_via
-           ) %>% 
+  ,tracado_via_tipo_1
+  ,tracado_via_tipo_2
+  ,tracado_via_tipo_3
+)  %>% 
+group_by(
+  municipio
+  ,is_night
+  ,is_weekend
+  ,is_single_lane
+  ,tracado_via_tipo_1
+  ,tracado_via_tipo_2
+  ,tracado_via_tipo_3
+) %>% 
   summarise(
    freq = n()
-  ) %>% arrange(municipio, desc(freq))
-  
-#var_categ %>% select(tracado_via) %>% distinct()
+  ) %>% as.data.frame() %>% 
+  arrange(municipio, desc(freq))
 
+ver(var_categ)
+
+
+var_categ  %>% select(municipio, is_night) %>% group_by(municipio) %>% 
+  filter(is_night  %in% c(F,0,'0')) %>% View()
 
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 # CLUSTERING - Variáveis Quntitativas (métricas)
