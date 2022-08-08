@@ -31,7 +31,8 @@ pacotes <- c("tidyverse",    # para manipulação de dados
              "plotly",       # Visualização de dados
              "data.table",
              "hrbrthemes",   # graph theme
-             "fastDummies"   # Gerar variáveis dummies
+             "fastDummies",  # Gerar variáveis dummies
+             "rlang"
              )
 
 if(sum(as.numeric(!pacotes %in% installed.packages())) != 0){
@@ -45,9 +46,10 @@ if(sum(as.numeric(!pacotes %in% installed.packages())) != 0){
 }
 
 # Conhecendo o dataset
-path <- "/Users/felipebarreto/Desktop/dados_acidentes_tratados.csv"
+path <- "/Users/felipebarreto/Desktop/"
+path_pasta <- paste0(path,'TCC/')
 
-df <- read.csv2(path, sep = ',')
+df <- read.csv2(paste0(path,'dados_acidentes_tratados.csv'), sep = ',')
 
 # Transaformando o encoding 
 for(i in names(df)){
@@ -131,7 +133,8 @@ for(column in c('tracado_via_tipo_1','tracado_via_tipo_2','tracado_via_tipo_3'))
 # FUNÇÕES
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 # Função para pegar o nome da variável
-get_name <- function(name, env = caller_env()) {
+library(rlang)
+get_name <- function(name, env = rlang::caller_env()) {
   name_sym <- sym(name)
   eval(name_sym, env)
 }
@@ -150,34 +153,56 @@ ver <- function(data,
 }
 
 # Função para calcular o share de TRUE pelo pelo total da variável
-share_var <- function(var, nome){
-  share_var <- df %>% select(municipio, sym(variavel)) %>% 
+share_var <- function(var){
+  share_var <- df %>% select(municipio, sym(var)) %>% 
     dummy_cols(
-    select_columns = 'tracado_via_tipo_1'
+    select_columns = var
     ) %>% 
     select(
       municipio,
-      sym(paste0(variavel,'_FALSE')),
-      sym(paste0(variavel,'_TRUE'))
+      sym(paste0(var,'_FALSE')),
+      sym(paste0(var,'_TRUE'))
     ) %>% 
     group_by(municipio) %>% 
     summarise(
-      pct_share = sum(get_name(paste0(variavel,'_TRUE'))) / n()
+      pct_share = sum(get_name(paste0(var,'_TRUE'))) / n()
     )
 
     return(share_var)
 }
-##############################################################################
+
+###############################################################################
 
 
+#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
+# SHARE DE VARIÁVEIS CATEGÓRICAS
+#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 
 # Variáveis categóricas e variáveis numéricas
+# Nao vou utilizar o tracado_via_tipo_3, já que é o menos expressivo e é o complemento
 ver(df)
 df %>% str()
 
-share_var('tracado_via_tipo_1') %>% 
-  rename(share_tracado_via_tipo_1 = pct_share)
-
+share_var_categ <- (
+share_var('tracado_via_tipo_1') %>% rename(share_tracado_via_tipo_1 = pct_share) %>% 
+  #left_join( ## VI QUE ESSA VARIÁVEL NÃO FAZ DIFERENÇA NO % DE VAR EXPLICADA
+  #  share_var('tracado_via_tipo_2') %>% rename(share_tracado_via_tipo_2 = pct_share),
+  #  on = 'municipio'
+  #) %>% 
+  left_join(
+    share_var('is_night') %>% rename(share_is_night = pct_share),
+    on = 'municipio'
+  ) %>% 
+  left_join(
+    share_var('is_weekend') %>% rename(share_is_weekend = pct_share),
+    on = 'municipio'
+  ) %>%
+  left_join(
+    share_var('is_single_lane') %>% rename(share_is_single_lane = pct_share),
+    on = 'municipio'
+  ) %>%  as.data.frame() 
+)
+ver(share_var_categ)
 
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 # ANÁLISE DE CORRESPONDÊNCIA - Variáveis categóricas
@@ -214,9 +239,6 @@ group_by(
 ver(var_categ)
 
 
-var_categ  %>% select(municipio, is_night) %>% group_by(municipio) %>% 
-  filter(is_night  %in% c(F,0,'0')) %>% View()
-
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 # CLUSTERING - Variáveis Quntitativas (métricas)
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
@@ -234,7 +256,7 @@ quantitative_variables <- c(
 var_quanti <- df %>% select(
   municipio
   ,quantitative_variables
-)
+  ) 
 
 for (i in quantitative_variables){
   var_quanti[[i]] <- as.numeric(var_quanti[[i]])
@@ -247,18 +269,38 @@ clustering <- var_quanti %>%
     across(
       everything(),
       list(sum)
-      ),
+    ),
     freq = n()
-  ) %>% arrange(desc(freq))  %>% data.frame()
+  ) %>%
+  left_join(
+    share_var_categ, 'municipio'
+  ) %>% 
+  arrange(desc(freq))  %>% data.frame()
 
-names(clustering) <- c(names(var_quanti),'freq')
+# Renomeando do data frame
+names(clustering) <- c(names(var_quanti),'freq',names(select(share_var_categ, -municipio)))
 
+ver(clustering)
+
+###############################################################################
 
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
-# Análises descritivas
+# Análises descritivas / Selecionando variáveis desejadas
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
+
+## Ver a correlaç˜so entre as variáveis para entender quais podem ser retiradas
+correlation <- chart.Correlation(clustering[,2:ncol(clustering)], method = "pearson")
+
+library(psych)
+corPlot(clustering[,2:ncol(clustering)], cex = .6)
+# comparação das variáveis com frequência
+retirar <- c(veiculos,feridos,pessoas)
+clustering %>% str
+
+## IDEAL: Estudo de correlação por CLUSTER!!
 
 clustering %>% summary
+
 
 # Qual a cidade que mais aparece no mapa de acidentes?
 clustering %>% filter(freq == max(clustering$freq))
@@ -272,21 +314,19 @@ df_quanti <- clustering %>%
   select(-c(ignorados,veiculos)) %>% 
   column_to_rownames('municipio')
 
-# Há alta correlação entre os dados, o que faz sentido
-chart.Correlation(df_quanti, method = "pearson")
-
 # Verificando se há valores vazios. Como não há, vamos seguir em frente
 df_quanti %>% aggr(plot = T)
+ver(df_quanti)
+fwrite(df_quanti, paste0(path_pasta,'Bases geradas/variaveis_quanti_agg.csv'), sep=';')
 
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
-# Cluster
+# CLUSTER - TODOS OS ESTUDOS SERÃO FEITOS APÓS CLUSTERIZAR
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
-
-df_quanti %>% arrange(desc(freq)) %>% ver(10, "Variáveis Selecionadas (Top 10)")
 
 # Padronizando a base (mesma escala)
 df.quanti.pad <- scale(df_quanti) %>% data.frame()
-df.quanti.pad %>% ver(10, name_table = "Dados Padronizados")
+ver(df.quanti.pad, 10, name_table = "Dados Padronizados")
+fwrite(df.quanti.pad, paste0(path_pasta,'Bases geradas/variaveis_quanti_pad_agg.csv'), sep=';')
 
 df.quanti.pad %>% summary() # média = 0 e desvio-padrão = 1
 
@@ -295,27 +335,32 @@ df.quanti.pad %>% summary() # média = 0 e desvio-padrão = 1
 # Estudo da quantidade ideal de clusters --> IMPORTANTE: Contexto do Negócio
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 
-# Verificando as possíveis quantidade de clusters
-grid.arrange(
 # Método Elbow (Cotovelo) --> Variabilidade dentro do grupo?
-## 
+metodo_elbow <- (
   fviz_nbclust(
     df.quanti.pad, 
     kmeans, 
     method = "wss") +
   geom_vline(xintercept = 5,linetype = 2) +
-  labs(title = "Número Ótimo de Clusters - K-Means"),
-  
-  # Método da Silhouette --> Quão bom foi o agrupamento com a alocação da observação
-  # Quanto maior for o coef. silhouette, melhor, já que favorece o agrupamento.
+  labs(title = "Número Ótimo de Clusters - K-Means")
+)
+
+# Método da Silhouette --> Quão bom foi o agrupamento com a alocação da observação
+# Quanto maior for o coef. silhouette, melhor, já que favorece o agrupamento.
+metodo_cotovolo <- (
   fviz_nbclust(
     df.quanti.pad,
     kmeans,
     method = "silhouette") +
   geom_vline(xintercept = 5, linetype = 2) +
-    labs(title = "Número Ótimo de Clusters - K-Means")
+  labs(title = "Número Ótimo de Clusters - K-Means")
 )
 
+# Juntando os dois plots
+grid.arrange(
+  metodo_elbow,
+  metodo_cotovolo
+)
 
 #db <- fpc::dbscan(df.quanti.pad ,eps = 0.1, MinPts = 6)
 #Visualize DBSCAN Clustering
@@ -338,9 +383,10 @@ for(i in 2:10){
   pct_var_explicada[i-1, "Percentual"] <- round((
     (kmeans(df.quanti.pad, centers = i)$betweenss)*100/totalss), 2)
 }
+
 pct_var_explicada %>% ver(10,"Variância Explicada por Cluster")
 
-ggplotly(
+plot_pct_var_explicada <- ggplotly(
   ggplot(pct_var_explicada, 
          aes(x = Clusters, y = Percentual)) +
     geom_point(color = "brown") + 
@@ -350,20 +396,21 @@ ggplotly(
          y = "Percentual de Variância Total Explicada",
          title = "Percentual de Variância Explicada")
 )
+plot_pct_var_explicada
 
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
-# Cluster pelo Método K-Means
+# Cluster pelo Método K-Means - (ESCOLHI 8 CLUSTERS)
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 
 opc_cluster <- list() # Opção de cluster
 graph <- list()       # opção de gráfico
-
-for(i in 1:4){
-  opc_cluster[[i]] <- kmeans(df.quanti.pad, centers = i + 2)
+n <- 5  # Número mínimo de clusters para analisar
+for(i in 1:6){
+  opc_cluster[[i]] <- kmeans(df.quanti.pad, centers = i + n-1)
   graph[[i]] <- fviz_cluster(opc_cluster[[i]],
                              geom = "point", 
                              data = df.quanti.pad) + 
-    ggtitle(paste0(i, "ª Opção - k = ",i+2))
+    ggtitle(paste0(i, "ª Opção - k = ",i + n-1))
 }
 
 # Plotando as possibilidades predefinidas
@@ -372,9 +419,11 @@ grid.arrange(
   graph[[2]],
   graph[[3]], 
   graph[[4]],
-  nrow = 2)
+  graph[[5]],
+  graph[[6]],
+  nrow = 3)
 
-# ESCOLHA DA OPÇÃO 3 (5 Clusters)
+# ESCOLHA DA OPÇÃO 3 (7 Clusters)
 opcao_clusters = 3
 fviz_cluster(opc_cluster[[opcao_clusters]],
              ellipse.type = "euclid", #Elipse concentração
@@ -383,7 +432,7 @@ fviz_cluster(opc_cluster[[opcao_clusters]],
              #ggtheme = theme_minimal(),
              geom = "point", 
              data = df.quanti.pad) + 
-  ggtitle(paste("Opção - k = ",opcao_clusters, sep=""))
+  ggtitle(paste("Opção - k = ",opcao_clusters + n-1, sep=""))
 
 # Obs: O Método K-Means é sensível a outliers
 
@@ -398,7 +447,7 @@ opc_cluster[[opcao_clusters]]$withinss       # Soma dos quadrados dentro dos gru
 opc_cluster[[opcao_clusters]]$tot.withinss   # Soma dos quadrados dentro de todos os grupos
 opc_cluster[[opcao_clusters]]$size           # Número de observasções por grupo (tamanhos)
 
-# Percentual de Variância Explicada com 5 clusters (R2)
+# Percentual de Variância Explicada com 7 clusters (R2)
 (opc_cluster[[opcao_clusters]]$betweenss / opc_cluster[[opcao_clusters]]$totss)
 
 # Obs: Os dois resultados mais importantes são os tamanhos dos grupos e as médias
@@ -408,7 +457,7 @@ opc_cluster[[opcao_clusters]]$centers # médias
 
 # Médias das variáveis de cada grupo - Médias de grupo
 centers <- data.frame(
-  cluster = factor(1:(opcao_clusters+2)), 
+  cluster = factor(1:(opcao_clusters+n-1)), 
   opc_cluster[[opcao_clusters]]$centers
 )
 
@@ -418,12 +467,13 @@ centers <- as.data.frame(
 
 names(centers) <- paste(
   "Cluster", 
-  1:(opcao_clusters+2)
+  1:(opcao_clusters+n-1)
 )
 
 centers <- rownames_to_column(.data = centers, var = 'Variavel')
 
-centers %>% ver(n = 7, name_table = "Centróides com Dados Padronizados")
+centers %>% ver(n = 11, name_table = "Centróides com Dados Padronizados")
+fwrite(centers, paste0(path_pasta,'Bases geradas/centroides_padronizados.csv'),sep=';', dec=',')
 
 #centers$Symbol <- row.names(centers)
 #centers <- gather(centers, "Cluster", "Mean", -Symbol)
@@ -472,9 +522,22 @@ df.quanti.clusters <- rownames_to_column(df_quanti, 'municipio') %>%
     by = 'municipio'
   ) %>% 
   mutate(uf = factor(uf))
+fwrite(df.quanti.clusters, paste0(path_pasta,'Bases geradas/variaveis_quanti_agg.csv'), sep=';')
+
+df.quanti.pad.clusters <- rownames_to_column(df.quanti.pad, 'municipio') %>% 
+  mutate(
+    cluster = factor(opc_cluster[[opcao_clusters]]$cluster)
+  ) %>% 
+  left_join(
+    distinct(df[,c('municipio','uf')]),
+    #df %>% select(municipio, factor('uf')) %>% distinct(),
+    by = 'municipio'
+  ) %>% 
+  mutate(uf = factor(uf))
+fwrite(df.quanti.pad.clusters, paste0(path_pasta,'Bases geradas/variaveis_quanti_pad_agg.csv'), sep=';')
+
 
 df.quanti.clusters %>% ver()
-
 df.quanti.clusters %>% summary
 
 
@@ -495,9 +558,16 @@ df.quanti.mean  <- df.quanti.clusters %>%
     feridos_graves = feridos_graves_1,
     ilesos = ilesos_1,
     feridos = feridos_1,
-    freq = freq_1
+    freq = freq_1,
+    share_tracado_via_tipo_1 = share_tracado_via_tipo_1_1,
+    share_is_night = share_is_night_1,
+    share_is_weekend = share_is_weekend_1,
+    share_is_single_lane = share_is_single_lane_1
   ) %>% 
   mutate(cluster = paste('Cluster', cluster))
+fwrite(df.quanti.mean, paste0(path_pasta,'Bases geradas/medias_var_cluster.csv'),sep=';',dec=',')
+
+ver(df.quanti.mean,7)
 
 df.quanti.mean.melt <- df.quanti.mean %>% 
   reshape2::melt(.) %>% rename(Mean = value, Variavel = variable)
@@ -598,7 +668,7 @@ opc_cluster[[opcao_clusters]]$centers
 
 # Análise dos clusters
 # ------------------------------------------------------------------------------
-fwrite(df.quanti.clusters, "/Users/felipebarreto/Desktop/TCC/Dados/Tratados/clusters_5.csv", sep = ';')
+fwrite(df.quanti.clusters, "/Users/felipebarreto/Desktop/TCC/Dados/Tratados/clusters_7.csv", sep = ';')
 
 # Agora, vou nas variáveis categóricas para entender os agrupamentos!
 
@@ -610,7 +680,6 @@ fwrite(df.quanti.clusters, "/Users/felipebarreto/Desktop/TCC/Dados/Tratados/clus
 library(gtsummary)
 df.quanti.pad %>% 
   tbl_cross(row = mortos,
-            col = fase_dia,
+            col = ilesos,
             percent = "row") %>% 
   bold_labels()
-
