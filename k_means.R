@@ -133,7 +133,6 @@ for(column in c('tracado_via_tipo_1','tracado_via_tipo_2','tracado_via_tipo_3'))
 # FUNÇÕES
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 # Função para pegar o nome da variável
-library(rlang)
 get_name <- function(name, env = rlang::caller_env()) {
   name_sym <- sym(name)
   eval(name_sym, env)
@@ -289,16 +288,14 @@ ver(clustering)
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 
 ## Ver a correlaç˜so entre as variáveis para entender quais podem ser retiradas
-correlation <- chart.Correlation(clustering[,2:ncol(clustering)], method = "pearson")
+chart.Correlation(clustering[,2:ncol(clustering)], method = "pearson")
 
 library(psych)
 corPlot(clustering[,2:ncol(clustering)], cex = .6)
 # comparação das variáveis com frequência
-retirar <- c(veiculos,feridos,pessoas)
-clustering %>% str
 
 ## IDEAL: Estudo de correlação por CLUSTER!!
-
+clustering %>% str
 clustering %>% summary
 
 
@@ -310,12 +307,13 @@ clustering %>% filter(freq == max(clustering$mortos))
 clustering %>% filter(freq == min(clustering$freq))
 
 # Colocando a label de municipio para index
-df_quanti <- clustering %>% 
-  select(-c(ignorados,veiculos)) %>% 
-  column_to_rownames('municipio')
+retirar_cols <- c('veiculos','feridos','pessoas')
+
+df_quanti <- clustering %>% select(-retirar_cols) %>% column_to_rownames('municipio')
+corPlot(df_quanti[,2:ncol(df_quanti)], cex = .6)
 
 # Verificando se há valores vazios. Como não há, vamos seguir em frente
-df_quanti %>% aggr(plot = T)
+df_quanti %>% aggr(plot = F)
 ver(df_quanti)
 fwrite(df_quanti, paste0(path_pasta,'Bases geradas/variaveis_quanti_agg.csv'), sep=';')
 
@@ -325,6 +323,7 @@ fwrite(df_quanti, paste0(path_pasta,'Bases geradas/variaveis_quanti_agg.csv'), s
 
 # Padronizando a base (mesma escala)
 df.quanti.pad <- scale(df_quanti) %>% data.frame()
+
 ver(df.quanti.pad, 10, name_table = "Dados Padronizados")
 fwrite(df.quanti.pad, paste0(path_pasta,'Bases geradas/variaveis_quanti_pad_agg.csv'), sep=';')
 
@@ -341,7 +340,7 @@ metodo_elbow <- (
     df.quanti.pad, 
     kmeans, 
     method = "wss") +
-  geom_vline(xintercept = 5,linetype = 2) +
+  geom_vline(xintercept = 7,linetype = 2) +
   labs(title = "Número Ótimo de Clusters - K-Means")
 )
 
@@ -352,7 +351,7 @@ metodo_cotovolo <- (
     df.quanti.pad,
     kmeans,
     method = "silhouette") +
-  geom_vline(xintercept = 5, linetype = 2) +
+  geom_vline(xintercept = 7, linetype = 2) +
   labs(title = "Número Ótimo de Clusters - K-Means")
 )
 
@@ -391,7 +390,7 @@ plot_pct_var_explicada <- ggplotly(
          aes(x = Clusters, y = Percentual)) +
     geom_point(color = "brown") + 
     geom_line() +
-    geom_vline(xintercept = 5,linetype = 3) + 
+    geom_vline(xintercept = 7,linetype = 3) + 
     labs(x = "Número Ótimo de Clusters",
          y = "Percentual de Variância Total Explicada",
          title = "Percentual de Variância Explicada")
@@ -399,7 +398,7 @@ plot_pct_var_explicada <- ggplotly(
 plot_pct_var_explicada
 
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
-# Cluster pelo Método K-Means - (ESCOLHI 8 CLUSTERS)
+# Cluster pelo Método K-Means - (ESCOLHI 7 CLUSTERS)
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 
 opc_cluster <- list() # Opção de cluster
@@ -552,12 +551,11 @@ df.quanti.mean  <- df.quanti.clusters %>%
     )
   ) %>% data.frame() %>%  
   rename(
-    pessoas = pessoas_1,
     mortos = mortos_1,
     feridos_leves = feridos_leves_1,
     feridos_graves = feridos_graves_1,
     ilesos = ilesos_1,
-    feridos = feridos_1,
+    ignorados = ignorados_1,
     freq = freq_1,
     share_tracado_via_tipo_1 = share_tracado_via_tipo_1_1,
     share_is_night = share_is_night_1,
@@ -585,17 +583,16 @@ ggplot(df.quanti.mean.melt,
 )
 avg.graph.2
 
-##### share de cada variável pela média de pessoas envolvidas nos acidentes #####
+##### share de cada variável pela média de acidentes #####
 # Representatividade média de cada variável
 df.quanti.mean.share <- df.quanti.mean %>% 
   mutate(
-    mortos = round(100 * mortos / pessoas, 2),
-    feridos_leves = round(100 * feridos_leves / pessoas, 2),
-    feridos_graves = round(100 * feridos_graves / pessoas, 2),
-    ilesos = round(100 * ilesos / pessoas, 2),
-    feridos = round(100 * feridos / pessoas, 2)
+    mortos = round(100 * mortos / freq, 2),
+    feridos_leves = round(100 * feridos_leves / freq, 2),
+    feridos_graves = round(100 * feridos_graves / freq, 2),
+    ilesos = round(100 * ilesos / freq, 2)
   ) %>% 
-  select(cluster,ilesos,feridos,feridos_leves,feridos_graves,mortos) %>% 
+  select(cluster,freq,ilesos,feridos_leves,feridos_graves,mortos) %>% 
   reshape2::melt(.) %>% 
   mutate(
     Cluster_Variavel = paste0(
@@ -618,7 +615,7 @@ colors_labels = case_when(
     )
 
 ggplotly(
-df.quanti.mean.share  %>% 
+df.quanti.mean.share %>% 
   mutate( #ordenar o eixo Y
     Cluster_Variavel = fct_reorder(Cluster_Variavel, 
     desc(as.integer((variable))))
@@ -646,7 +643,7 @@ df.quanti.mean.share  %>%
     ) +
     xlab("Média") +
     ylab("Clusters e Variáveis Quantitativas") +
-    ggtitle("Share de Médias com a quantidade de envolvidos nos acidentes (%)")
+    ggtitle("Share de Médias com a frequência de acidentes (%)")
 ) 
 
 #### OBSERVAÇÃO: o avg.graph.1 não é interessante para a interpretação!!
@@ -658,7 +655,7 @@ df.quanti.pad$cluster <- factor(opc_cluster[[opcao_clusters]]$cluster)
 
 ggplotly(
   ggplot(data = df.quanti.pad,
-         aes(x = mortos, y = pessoas, 
+         aes(x = mortos, y = freq, 
              color = cluster, shape = cluster)) +
     geom_point(alpha = 0.7)
 )
@@ -678,8 +675,8 @@ fwrite(df.quanti.clusters, "/Users/felipebarreto/Desktop/TCC/Dados/Tratados/clus
 
 # Tabulação personalizada
 library(gtsummary)
-df.quanti.pad %>% 
-  tbl_cross(row = mortos,
-            col = ilesos,
+df.quanti.mean %>% 
+  tbl_cross(row = cluster,
+            col = mortos,
             percent = "row") %>% 
   bold_labels()
