@@ -17,7 +17,8 @@ pacotes <- c("tidyverse",    # para manipulação de dados
              "data.table",
              "hrbrthemes",   # graph theme
              "fastDummies",  # Gerar variáveis dummies
-             "rlang"
+             "rlang",        
+             "psych"         # correlação
 )
 
 if(sum(as.numeric(!pacotes %in% installed.packages())) != 0){
@@ -72,3 +73,4 @@ share_var <- function(var){
 }
 
 ###############################################################################
+
