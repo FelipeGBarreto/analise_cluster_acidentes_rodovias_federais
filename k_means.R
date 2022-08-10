@@ -17,269 +17,21 @@
 ## INICIANDO A ANÁLISE 
 #------------------------------------------------------------------------------#
 
-# Bibliotecas Inportantes para a análise
-pacotes <- c("tidyverse",    # para manipulação de dados
-             "cluster",      # algorítimo de cluster
-             "dendextend",   # compara dendogramas (melhor p/ Mod. Hierárquicos)
-             "factoextra",   # Algoritmo de cluster e visualização
-             "fpc",          # Algoritmo de cluster e visualização
-             "gridExtra",    # Para a função grid.arrange
-             "tibble",       # Transformar Uma coluna específica em index
-             "kableExtra",   # Visualização no viwer, para facilitar
-             "PerformanceAnalytics",   # Correlação dos dados
-             "VIM",          # Verificação de valores nulos
-             "plotly",       # Visualização de dados
-             "data.table",
-             "hrbrthemes",   # graph theme
-             "fastDummies",  # Gerar variáveis dummies
-             "rlang"
-             )
-
-if(sum(as.numeric(!pacotes %in% installed.packages())) != 0){
-  instalador <- pacotes[!pacotes %in% installed.packages()]
-  for(i in 1:length(instalador)) {
-    install.packages(instalador, dependencies = T)
-    break()}
-  sapply(pacotes, require, character = T) 
-} else {
-  sapply(pacotes, require, character = T) 
-}
+#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
+# BASE DE DADOS
+#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 
 # Conhecendo o dataset
 path <- "/Users/felipebarreto/Desktop/"
 path_pasta <- paste0(path,'TCC/')
 
-df <- read.csv2(paste0(path,'dados_acidentes_tratados.csv'), sep = ',')
+df_completo <- read.csv2(paste0(path,'dados_acidentes_tratados_completo.csv'), sep = ',')
+df <- read.csv2(paste0(path,'dados_acidentes_tratados_selecionadas.csv'), sep = ',')
+var_quanti <- read.csv2(paste0(path,'TCC/Bases geradas/var_quanti_agg.csv'), sep = ',')
 
-# Transaformando o encoding 
-for(i in names(df)){
-  # encoding
-  if(class(df[[i]]) == 'character'){
-    Encoding(df[[i]]) <- 'latin1'
-  }
-  
-#Retirar todos os espaços vazios (início e fim)
-  df[[i]] <- trimws(df[[i]])
-  
-# Lower case 
-  df[[i]] <- tolower(df[[i]])
-}
+####clustering = var_quanti
 
-# transaformando a data
-df$data <- as.Date(df$data, format='%Y-%m-%d')
-
-df$turno <- case_when(
-  df$turno %in% c(tolower('manhã£')) ~ 'manhã',
-  df$turno %in% c(tolower('tarde')) ~ 'tarde',
-  df$turno %in% c(tolower('noite')) ~ 'noite',
-)
-
-df$is_night <- case_when(
-  df$turno %in% c('manhã','tarde') ~ FALSE,
-  df$turno %in% c('noite') ~ TRUE
-)
-
-df$dia_semana <- case_when(
-  df$dia_semana %in% c('segunda','segunda-feira') ~ 'segunda',
-  df$dia_semana %in% c('terça','terça-feira') ~ 'terça',
-  df$dia_semana %in% c('quarta','quarta-feira') ~ 'quarta',
-  df$dia_semana %in% c('quinta','quinta-feira') ~ 'quinta',
-  df$dia_semana %in% c('sexta','sexta-feira') ~ 'sexta',
-  df$dia_semana %in% c('sabado','sábado') ~ 'sabado',
-  df$dia_semana %in% c('domingo') ~ 'domingo'
-)
-
-df$is_weekend <- case_when(
-  df$dia_semana %in% c('segunda','terça','quarta','quinta') ~ FALSE,
-  df$dia_semana %in% c('sexta','sabado','domingo') ~ TRUE
-)
-
-df$tipo_pista <- case_when(
-  df$tipo_pista == 'simples' ~ 'simples',
-  df$tipo_pista %in% c('múltipla','multipla','dupla') ~ 'dupla/multipla'
-)
-
-df$is_single_lane <- case_when( #se é pisca única
-  df$tipo_pista %in% ('simples') ~ TRUE,
-  TRUE ~ FALSE
-)
-
-### Tipos de Traçado de via
-## Tipo 1: reta
-# 'reta'
-## Tipo 2: 
-# 'curva','cruzamento','rotatória','interseção de vias','desvio temporário','retorno regulamentado'
-## Tipo 3: 
-# 'viaduto','ponte','túneo'
-
-df$tracado_via <- case_when(
-  df$tracado_via %in% c('reta') ~ 'tipo_1',
-  df$tracado_via %in% c('curva','cruzamento',
-                        'rotatória','interseção de vias',
-                        'desvio temporário','retorno regulamentado') ~ 'tipo_2',
-  df$tracado_via %in% c('viaduto','ponte','túneo') ~ 'tipo_3'
-)
-
-# Criando dummies das variáveis de traçado de via
-df <- dummy_cols(
-  df, select_columns = 'tracado_via'
-)
-
-for(column in c('tracado_via_tipo_1','tracado_via_tipo_2','tracado_via_tipo_3')){
-  df[[column]] = ifelse(df[[column]] %in% c(1,'1'), T, F)
-}
-
-#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
-# FUNÇÕES
-#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
-# Função para pegar o nome da variável
-get_name <- function(name, env = rlang::caller_env()) {
-  name_sym <- sym(name)
-  eval(name_sym, env)
-}
-
-# função para melhorar a visualização
-ver <- function(data, 
-                n=5, 
-                name_table = "Base de Dados"){
-    base_name = match.call()$data
-    data %>% head(n) %>% 
-      kbl(
-        caption = paste("Tabela:", name_table, '|', 'Base de dados:', base_name)
-        ) %>%
-      kable_classic(full_width = F, html_font = "") %>% 
-      scroll_box(width = "100%", height = "300px")
-}
-
-# Função para calcular o share de TRUE pelo pelo total da variável
-share_var <- function(var){
-  share_var <- df %>% select(municipio, sym(var)) %>% 
-    dummy_cols(
-    select_columns = var
-    ) %>% 
-    select(
-      municipio,
-      sym(paste0(var,'_FALSE')),
-      sym(paste0(var,'_TRUE'))
-    ) %>% 
-    group_by(municipio) %>% 
-    summarise(
-      pct_share = sum(get_name(paste0(var,'_TRUE'))) / n()
-    )
-
-    return(share_var)
-}
-
-###############################################################################
-
-
-#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
-# SHARE DE VARIÁVEIS CATEGÓRICAS
-#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
-
-# Variáveis categóricas e variáveis numéricas
-# Nao vou utilizar o tracado_via_tipo_3, já que é o menos expressivo e é o complemento
-ver(df)
-df %>% str()
-
-share_var_categ <- (
-share_var('tracado_via_tipo_1') %>% rename(share_tracado_via_tipo_1 = pct_share) %>% 
-  #left_join( ## VI QUE ESSA VARIÁVEL NÃO FAZ DIFERENÇA NO % DE VAR EXPLICADA
-  #  share_var('tracado_via_tipo_2') %>% rename(share_tracado_via_tipo_2 = pct_share),
-  #  on = 'municipio'
-  #) %>% 
-  left_join(
-    share_var('is_night') %>% rename(share_is_night = pct_share),
-    on = 'municipio'
-  ) %>% 
-  left_join(
-    share_var('is_weekend') %>% rename(share_is_weekend = pct_share),
-    on = 'municipio'
-  ) %>%
-  left_join(
-    share_var('is_single_lane') %>% rename(share_is_single_lane = pct_share),
-    on = 'municipio'
-  ) %>%  as.data.frame() 
-)
-ver(share_var_categ)
-
-#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
-# ANÁLISE DE CORRESPONDÊNCIA - Variáveis categóricas
-#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
-
-# ANACOR / ACM - Análise de correspondência para as variáveis categóricas
-
-# Variáveis categóricas
-#causa_acidente --> avaliar se é possível clusterizar
-#tipo_acidente  --> avaliar se é possível clusterizar
-var_categ <- df %>% select(
-  municipio
-  ,is_night
-  ,is_weekend
-  ,is_single_lane
-  ,tracado_via_tipo_1
-  ,tracado_via_tipo_2
-  ,tracado_via_tipo_3
-)  %>% 
-group_by(
-  municipio
-  ,is_night
-  ,is_weekend
-  ,is_single_lane
-  ,tracado_via_tipo_1
-  ,tracado_via_tipo_2
-  ,tracado_via_tipo_3
-) %>% 
-  summarise(
-   freq = n()
-  ) %>% as.data.frame() %>% 
-  arrange(municipio, desc(freq))
-
-ver(var_categ)
-
-
-#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
-# CLUSTERING - Variáveis Quntitativas (métricas)
-#--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
-quantitative_variables <- c(
-  'pessoas'
-  ,'mortos'
-  ,'feridos_leves'
-  ,'feridos_graves'
-  ,'ilesos'
-  ,'ignorados'
-  ,'feridos'
-  ,'veiculos'
-)
-
-var_quanti <- df %>% select(
-  municipio
-  ,quantitative_variables
-  ) 
-
-for (i in quantitative_variables){
-  var_quanti[[i]] <- as.numeric(var_quanti[[i]])
-}
-
-# Agrupando os dados com as quantidades totais por município
-clustering <- var_quanti %>%  
-  group_by(municipio) %>% 
-  summarise(
-    across(
-      everything(),
-      list(sum)
-    ),
-    freq = n()
-  ) %>%
-  left_join(
-    share_var_categ, 'municipio'
-  ) %>% 
-  arrange(desc(freq))  %>% data.frame()
-
-# Renomeando do data frame
-names(clustering) <- c(names(var_quanti),'freq',names(select(share_var_categ, -municipio)))
-
-ver(clustering)
+ver(var_quanti)
 
 ###############################################################################
 
@@ -287,7 +39,7 @@ ver(clustering)
 # Análises descritivas / Selecionando variáveis desejadas
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 
-## Ver a correlaç˜so entre as variáveis para entender quais podem ser retiradas
+## Ver a correlação entre as variáveis para entender quais podem ser retiradas
 chart.Correlation(clustering[,2:ncol(clustering)], method = "pearson")
 
 library(psych)
