@@ -64,7 +64,7 @@ df_quanti %>% filter(freq == max(df_quanti$mortos))
 df_quanti %>% filter(freq == min(df_quanti$freq))
 
 # Colocando a label de municipio para index
-retirar_cols <- c('veiculos','feridos','pessoas','share_tracado_via_tipo_2')
+retirar_cols <- c('veiculos','feridos','pessoas','ignorados','share_tracado_via_tipo_2')
 
 var_quanti <- df_quanti %>% select(-retirar_cols) %>% column_to_rownames('municipio')
 corPlot(var_quanti[,2:ncol(var_quanti)], cex = .6)
@@ -316,7 +316,6 @@ df.quanti.mean  <- df.quanti.clusters %>%
     feridos_leves = feridos_leves_1,
     feridos_graves = feridos_graves_1,
     ilesos = ilesos_1,
-    ignorados = ignorados_1,
     freq = freq_1,
     share_tracado_via_tipo_1 = share_tracado_via_tipo_1_1,
     share_is_night = share_is_night_1,
