@@ -10,7 +10,7 @@ library(VIM)
 
 
 # K-means
-path <- "/Users/felipebarreto/Desktop/TCC/Dados/Dados originais"
+path <- "/Users/felipebarreto/Desktop/TCC/Dados"
 
 #------------------------------------------------------------#
 # Maneira 1 de ter uma lista com vários arquivos de uma pasta
@@ -242,8 +242,8 @@ retirar_cols <- c(
   ,'tipo_pista'
   ,'uso_solo'
   ,'tracado_via'
-  ,'tracado_via_tipo_2'
-  ,'tracado_via_tipo_3'
+  #,'tracado_via_tipo_2'
+  #,'tracado_via_tipo_3'
   ,'tracado_via_NA'
 )
 
@@ -264,10 +264,10 @@ df %>% str()
 
 share_var_categ <- (
   share_var('tracado_via_tipo_1') %>% rename(share_tracado_via_tipo_1 = pct_share) %>% 
-    #left_join( ## VI QUE ESSA VARIÁVEL NÃO FAZ DIFERENÇA NO % DE VAR EXPLICADA
-    #  share_var('tracado_via_tipo_2') %>% rename(share_tracado_via_tipo_2 = pct_share),
-    #  on = 'municipio'
-    #) %>% 
+    left_join( ## VI QUE ESSA VARIÁVEL NÃO FAZ DIFERENÇA NO % DE VAR EXPLICADA
+      share_var('tracado_via_tipo_2') %>% rename(share_tracado_via_tipo_2 = pct_share),
+      on = 'municipio'
+    ) %>% 
     left_join(
       share_var('is_night') %>% rename(share_is_night = pct_share),
       on = 'municipio'
@@ -333,14 +333,15 @@ names(var_quanti) <- c(
   'feridos',
   'veiculos',
   'freq',
-  'share_tracado_via_tipo',
+  'share_tracado_via_tipo_1',
+  'share_tracado_via_tipo_2',
   'share_is_night',
   'share_is_weekend',
   'share_is_single_lane'
 )
   
-fwrite(var_quanti, "/Users/felipebarreto/Desktop/TCC/Bases geradas/var_quanti_agg.csv", sep = ',')
-  
+fwrite(var_quanti, "/Users/felipebarreto/Desktop/TCC/Bases geradas/var_quanti_agg_pre.csv", sep = ',')
+ 
   
 
 

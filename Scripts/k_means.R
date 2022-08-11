@@ -27,12 +27,18 @@ path_pasta <- paste0(path,'TCC/')
 
 df_completo <- read.csv2(paste0(path,'dados_acidentes_tratados_completo.csv'), sep = ',')
 df <- read.csv2(paste0(path,'dados_acidentes_tratados_selecionadas.csv'), sep = ',')
-var_quanti <- read.csv2(paste0(path,'TCC/Bases geradas/var_quanti_agg.csv'), sep = ',')
+df_quanti <- read.csv2(paste0(path,'TCC/Bases geradas/var_quanti_agg_pre.csv'), sep = ',')
 
 ####clustering = var_quanti
 
-ver(var_quanti)
+ver(df_quanti)
+class(df_quanti)
+str(df_quanti)
 
+for (i in c('share_tracado_via_tipo_1','share_tracado_via_tipo_2',
+            'share_is_night','share_is_weekend','share_is_single_lane')){
+  df_quanti[[i]] <- as.numeric(df_quanti[[i]])
+}
 ###############################################################################
 
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
@@ -40,46 +46,45 @@ ver(var_quanti)
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 
 ## Ver a correlação entre as variáveis para entender quais podem ser retiradas
-chart.Correlation(clustering[,2:ncol(clustering)], method = "pearson")
+chart.Correlation(df_quanti[,2:ncol(df_quanti)], method = "pearson")
+psych::corPlot(df_quanti[,2:ncol(df_quanti)], cex = .6)
 
-library(psych)
-corPlot(clustering[,2:ncol(clustering)], cex = .6)
 # comparação das variáveis com frequência
 
 ## IDEAL: Estudo de correlação por CLUSTER!!
-clustering %>% str
-clustering %>% summary
+df_quanti %>% str
+df_quanti %>% summary
 
 
 # Qual a cidade que mais aparece no mapa de acidentes?
-clustering %>% filter(freq == max(clustering$freq))
-clustering %>% filter(freq == max(clustering$mortos))
+df_quanti %>% filter(freq == max(df_quanti$freq))
+df_quanti %>% filter(freq == max(df_quanti$mortos))
 
 # Qual a cidade que mais aparece no mapa de acidentes?
-clustering %>% filter(freq == min(clustering$freq))
+df_quanti %>% filter(freq == min(df_quanti$freq))
 
 # Colocando a label de municipio para index
-retirar_cols <- c('veiculos','feridos','pessoas')
+retirar_cols <- c('veiculos','feridos','pessoas','share_tracado_via_tipo_2')
 
-df_quanti <- clustering %>% select(-retirar_cols) %>% column_to_rownames('municipio')
-corPlot(df_quanti[,2:ncol(df_quanti)], cex = .6)
+var_quanti <- df_quanti %>% select(-retirar_cols) %>% column_to_rownames('municipio')
+corPlot(var_quanti[,2:ncol(var_quanti)], cex = .6)
 
 # Verificando se há valores vazios. Como não há, vamos seguir em frente
-df_quanti %>% aggr(plot = F)
-ver(df_quanti)
-fwrite(df_quanti, paste0(path_pasta,'Bases geradas/variaveis_quanti_agg.csv'), sep=';')
+var_quanti %>% aggr(plot = F)
+ver(var_quanti)
+fwrite(var_quanti, paste0(path_pasta,'Bases geradas/variaveis_quanti_agg.csv'), sep=';')
 
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 # CLUSTER - TODOS OS ESTUDOS SERÃO FEITOS APÓS CLUSTERIZAR
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 
 # Padronizando a base (mesma escala)
-df.quanti.pad <- scale(df_quanti) %>% data.frame()
+var_quanti_pad <- scale(var_quanti) %>% data.frame()
 
-ver(df.quanti.pad, 10, name_table = "Dados Padronizados")
-fwrite(df.quanti.pad, paste0(path_pasta,'Bases geradas/variaveis_quanti_pad_agg.csv'), sep=';')
+ver(var_quanti_pad, 10, name_table = "Dados Padronizados")
+fwrite(var_quanti_pad, paste0(path_pasta,'Bases geradas/variaveis_quanti_pad_agg.csv'), sep=';')
 
-df.quanti.pad %>% summary() # média = 0 e desvio-padrão = 1
+var_quanti_pad %>% summary() # média = 0 e desvio-padrão = 1
 
 
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
@@ -89,7 +94,7 @@ df.quanti.pad %>% summary() # média = 0 e desvio-padrão = 1
 # Método Elbow (Cotovelo) --> Variabilidade dentro do grupo?
 metodo_elbow <- (
   fviz_nbclust(
-    df.quanti.pad, 
+    var_quanti_pad, 
     kmeans, 
     method = "wss") +
   geom_vline(xintercept = 7,linetype = 2) +
@@ -100,7 +105,7 @@ metodo_elbow <- (
 # Quanto maior for o coef. silhouette, melhor, já que favorece o agrupamento.
 metodo_cotovolo <- (
   fviz_nbclust(
-    df.quanti.pad,
+    var_quanti_pad,
     kmeans,
     method = "silhouette") +
   geom_vline(xintercept = 7, linetype = 2) +
@@ -113,10 +118,10 @@ grid.arrange(
   metodo_cotovolo
 )
 
-#db <- fpc::dbscan(df.quanti.pad ,eps = 0.1, MinPts = 6)
+#db <- fpc::dbscan(var_quanti_pad ,eps = 0.1, MinPts = 6)
 #Visualize DBSCAN Clustering
 #dbcs <- fviz_cluster(db,
- #                    data=df.quanti.pad,
+ #                    data=var_quanti_pad,
   #                   stand = FALSE,
    #                  show.clust.cent = FALSE,
     #                 geom = "point",
@@ -128,11 +133,11 @@ grid.arrange(
 pct_var_explicada <- data.frame(Clusters = 2:10,
                                 Percentual = 0)
 
-totalss <- kmeans(df.quanti.pad, centers = 10)$totss
+totalss <- kmeans(var_quanti_pad, centers = 10)$totss
 
 for(i in 2:10){
   pct_var_explicada[i-1, "Percentual"] <- round((
-    (kmeans(df.quanti.pad, centers = i)$betweenss)*100/totalss), 2)
+    (kmeans(var_quanti_pad, centers = i)$betweenss)*100/totalss), 2)
 }
 
 pct_var_explicada %>% ver(10,"Variância Explicada por Cluster")
@@ -157,10 +162,10 @@ opc_cluster <- list() # Opção de cluster
 graph <- list()       # opção de gráfico
 n <- 5  # Número mínimo de clusters para analisar
 for(i in 1:6){
-  opc_cluster[[i]] <- kmeans(df.quanti.pad, centers = i + n-1)
+  opc_cluster[[i]] <- kmeans(var_quanti_pad, centers = i + n-1)
   graph[[i]] <- fviz_cluster(opc_cluster[[i]],
                              geom = "point", 
-                             data = df.quanti.pad) + 
+                             data = var_quanti_pad) + 
     ggtitle(paste0(i, "ª Opção - k = ",i + n-1))
 }
 
@@ -174,6 +179,8 @@ grid.arrange(
   graph[[6]],
   nrow = 3)
 
+
+
 # ESCOLHA DA OPÇÃO 3 (7 Clusters)
 opcao_clusters = 3
 fviz_cluster(opc_cluster[[opcao_clusters]],
@@ -182,7 +189,7 @@ fviz_cluster(opc_cluster[[opcao_clusters]],
              repel = TRUE,
              #ggtheme = theme_minimal(),
              geom = "point", 
-             data = df.quanti.pad) + 
+             data = var_quanti_pad) + 
   ggtitle(paste("Opção - k = ",opcao_clusters + n-1, sep=""))
 
 # Obs: O Método K-Means é sensível a outliers
@@ -205,6 +212,8 @@ opc_cluster[[opcao_clusters]]$size           # Número de observasções por gru
 # Obs2: Lembrar que está padronizado!
 opc_cluster[[opcao_clusters]]$size # tamanho
 opc_cluster[[opcao_clusters]]$centers # médias
+
+################################################################################
 
 # Médias das variáveis de cada grupo - Médias de grupo
 centers <- data.frame(
@@ -263,7 +272,7 @@ opc_cluster[[opcao_clusters]]$centers # médias
 #....................#
 
 # Adicionando a variável "Cluster" e UF no dataset
-df.quanti.clusters <- rownames_to_column(df_quanti, 'municipio') %>% 
+df.quanti.clusters <- df_quanti %>% 
   mutate(
     cluster = factor(opc_cluster[[opcao_clusters]]$cluster)
   ) %>% 
@@ -275,7 +284,7 @@ df.quanti.clusters <- rownames_to_column(df_quanti, 'municipio') %>%
   mutate(uf = factor(uf))
 fwrite(df.quanti.clusters, paste0(path_pasta,'Bases geradas/variaveis_quanti_agg.csv'), sep=';')
 
-df.quanti.pad.clusters <- rownames_to_column(df.quanti.pad, 'municipio') %>% 
+df.quanti.clusters.pad <- rownames_to_column(var_quanti_pad, 'municipio') %>% 
   mutate(
     cluster = factor(opc_cluster[[opcao_clusters]]$cluster)
   ) %>% 
@@ -285,7 +294,7 @@ df.quanti.pad.clusters <- rownames_to_column(df.quanti.pad, 'municipio') %>%
     by = 'municipio'
   ) %>% 
   mutate(uf = factor(uf))
-fwrite(df.quanti.pad.clusters, paste0(path_pasta,'Bases geradas/variaveis_quanti_pad_agg.csv'), sep=';')
+fwrite(df.quanti.clusters.pad, paste0(path_pasta,'Bases geradas/variaveis_quanti_pad_agg.csv'), sep=';')
 
 
 df.quanti.clusters %>% ver()
@@ -294,7 +303,7 @@ df.quanti.clusters %>% summary
 
 ## MESMO GRÁFICO, MAS COM AS MÉDIAS REAIS
 df.quanti.mean  <- df.quanti.clusters %>% 
-  select(-c(municipio,uf)) %>% 
+  select(-c(municipio,uf,retirar_cols)) %>% 
   group_by(cluster) %>% 
   summarise(
     across(
@@ -417,7 +426,7 @@ opc_cluster[[opcao_clusters]]$centers
 
 # Análise dos clusters
 # ------------------------------------------------------------------------------
-fwrite(df.quanti.clusters, "/Users/felipebarreto/Desktop/TCC/Dados/Tratados/clusters_7.csv", sep = ';')
+fwrite(df.quanti.clusters, "/Users/felipebarreto/Desktop/TCC/Bases geradas/clusters_7.csv", sep = ';')
 
 # Agora, vou nas variáveis categóricas para entender os agrupamentos!
 
