@@ -27,7 +27,7 @@ path_pasta <- paste0(path,'TCC/')
 
 df_completo <- read.csv2(paste0(path,'dados_acidentes_tratados_completo.csv'), sep = ',')
 df <- read.csv2(paste0(path,'dados_acidentes_tratados_selecionadas.csv'), sep = ',')
-df_quanti <- read.csv2(paste0(path,'TCC/Bases geradas/var_quanti_agg.csv'), sep = ',')
+df_quanti <- read.csv2(paste0(path,'TCC/Bases geradas/var_quanti_agg_pre.csv'), sep = ',')
 
 ####clustering = var_quanti
 
@@ -67,7 +67,7 @@ df_quanti %>% filter(freq == min(df_quanti$freq))
 retirar_cols <- c('veiculos','feridos','pessoas','share_tracado_via_tipo_2')
 
 var_quanti <- df_quanti %>% select(-retirar_cols) %>% column_to_rownames('municipio')
-corPlot(df_quanti[,2:ncol(df_quanti)], cex = .6)
+corPlot(var_quanti[,2:ncol(var_quanti)], cex = .6)
 
 # Verificando se há valores vazios. Como não há, vamos seguir em frente
 var_quanti %>% aggr(plot = F)
@@ -178,6 +178,8 @@ grid.arrange(
   graph[[5]],
   graph[[6]],
   nrow = 3)
+
+
 
 # ESCOLHA DA OPÇÃO 3 (7 Clusters)
 opcao_clusters = 3
@@ -301,7 +303,7 @@ df.quanti.clusters %>% summary
 
 ## MESMO GRÁFICO, MAS COM AS MÉDIAS REAIS
 df.quanti.mean  <- df.quanti.clusters %>% 
-  select(-c(municipio,uf)) %>% 
+  select(-c(municipio,uf,retirar_cols)) %>% 
   group_by(cluster) %>% 
   summarise(
     across(

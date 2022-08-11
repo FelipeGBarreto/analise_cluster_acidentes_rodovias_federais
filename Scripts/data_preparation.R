@@ -10,7 +10,7 @@ library(VIM)
 
 
 # K-means
-path <- "/Users/felipebarreto/Desktop/TCC/Dados/Dados originais"
+path <- "/Users/felipebarreto/Desktop/TCC/Dados"
 
 #------------------------------------------------------------#
 # Maneira 1 de ter uma lista com vários arquivos de uma pasta
@@ -340,7 +340,7 @@ names(var_quanti) <- c(
   'share_is_single_lane'
 )
   
-fwrite(var_quanti, "/Users/felipebarreto/Desktop/TCC/Bases geradas/var_quanti_agg.csv", sep = ',')
+fwrite(var_quanti, "/Users/felipebarreto/Desktop/TCC/Bases geradas/var_quanti_agg_pre.csv", sep = ',')
  
   
 
