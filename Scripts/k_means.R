@@ -72,7 +72,7 @@ corPlot(var_quanti[,2:ncol(var_quanti)], cex = .6)
 # Verificando se há valores vazios. Como não há, vamos seguir em frente
 var_quanti %>% aggr(plot = F)
 ver(var_quanti)
-fwrite(var_quanti, paste0(path_pasta,'Bases geradas/variaveis_quanti_agg.csv'), sep=';')
+fwrite(var_quanti, paste0(path_pasta,'Bases geradas/variaveis_quanti_agg.csv'), sep=';', dec = '.')
 
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 # CLUSTER - TODOS OS ESTUDOS SERÃO FEITOS APÓS CLUSTERIZAR
@@ -82,7 +82,7 @@ fwrite(var_quanti, paste0(path_pasta,'Bases geradas/variaveis_quanti_agg.csv'), 
 var_quanti_pad <- scale(var_quanti) %>% data.frame()
 
 ver(var_quanti_pad, 10, name_table = "Dados Padronizados")
-fwrite(var_quanti_pad, paste0(path_pasta,'Bases geradas/variaveis_quanti_pad_agg.csv'), sep=';')
+fwrite(var_quanti_pad, paste0(path_pasta,'Bases geradas/variaveis_quanti_pad_agg.csv'), sep=';', dec = '.')
 
 var_quanti_pad %>% summary() # média = 0 e desvio-padrão = 1
 
@@ -97,7 +97,7 @@ metodo_elbow <- (
     var_quanti_pad, 
     kmeans, 
     method = "wss") +
-  geom_vline(xintercept = 7,linetype = 2) +
+  geom_vline(xintercept = 5,linetype = 2) +
   labs(title = "Número Ótimo de Clusters - K-Means")
 )
 
@@ -108,7 +108,7 @@ metodo_cotovolo <- (
     var_quanti_pad,
     kmeans,
     method = "silhouette") +
-  geom_vline(xintercept = 7, linetype = 2) +
+  geom_vline(xintercept = 5, linetype = 2) +
   labs(title = "Número Ótimo de Clusters - K-Means")
 )
 
@@ -147,7 +147,7 @@ plot_pct_var_explicada <- ggplotly(
          aes(x = Clusters, y = Percentual)) +
     geom_point(color = "brown") + 
     geom_line() +
-    geom_vline(xintercept = 7,linetype = 3) + 
+    geom_vline(xintercept = 5,linetype = 3) + 
     labs(x = "Número Ótimo de Clusters",
          y = "Percentual de Variância Total Explicada",
          title = "Percentual de Variância Explicada")
@@ -155,12 +155,12 @@ plot_pct_var_explicada <- ggplotly(
 plot_pct_var_explicada
 
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
-# Cluster pelo Método K-Means - (ESCOLHI 7 CLUSTERS)
+# Cluster pelo Método K-Means - (ESCOLHI 5 CLUSTERS)
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 
 opc_cluster <- list() # Opção de cluster
 graph <- list()       # opção de gráfico
-n <- 5  # Número mínimo de clusters para analisar
+n <- 3  # Número mínimo de clusters para analisar
 for(i in 1:6){
   opc_cluster[[i]] <- kmeans(var_quanti_pad, centers = i + n-1)
   graph[[i]] <- fviz_cluster(opc_cluster[[i]],
@@ -181,7 +181,7 @@ grid.arrange(
 
 
 
-# ESCOLHA DA OPÇÃO 3 (7 Clusters)
+# ESCOLHA DA OPÇÃO 3 (5 Clusters)
 opcao_clusters = 3
 fviz_cluster(opc_cluster[[opcao_clusters]],
              ellipse.type = "euclid", #Elipse concentração
@@ -233,7 +233,7 @@ names(centers) <- paste(
 centers <- rownames_to_column(.data = centers, var = 'Variavel')
 
 centers %>% ver(n = 11, name_table = "Centróides com Dados Padronizados")
-fwrite(centers, paste0(path_pasta,'Bases geradas/centroides_padronizados.csv'),sep=';', dec=',')
+fwrite(centers, paste0(path_pasta,'Bases geradas/centroides_padronizados.csv'),sep=';', dec='.')
 
 #centers$Symbol <- row.names(centers)
 #centers <- gather(centers, "Cluster", "Mean", -Symbol)
@@ -275,26 +275,26 @@ opc_cluster[[opcao_clusters]]$centers # médias
 df.quanti.clusters <- df_quanti %>% 
   mutate(
     cluster = factor(opc_cluster[[opcao_clusters]]$cluster)
-  ) %>% 
-  left_join(
-    distinct(df[,c('municipio','uf')]),
-    #df %>% select(municipio, factor('uf')) %>% distinct(),
-    by = 'municipio'
-  ) %>% 
-  mutate(uf = factor(uf))
-fwrite(df.quanti.clusters, paste0(path_pasta,'Bases geradas/variaveis_quanti_agg.csv'), sep=';')
+  ) #%>% 
+ # left_join(
+#    distinct(df[,c('municipio','uf')]),
+#    #df %>% select(municipio, factor('uf')) %>% distinct(),
+#    by = 'municipio'
+#  ) %>% 
+#  mutate(uf = factor(uf))
+fwrite(df.quanti.clusters, paste0(path_pasta,'Bases geradas/variaveis_quanti_agg.csv'), sep=';', dec = '.')
 
 df.quanti.clusters.pad <- rownames_to_column(var_quanti_pad, 'municipio') %>% 
   mutate(
     cluster = factor(opc_cluster[[opcao_clusters]]$cluster)
-  ) %>% 
-  left_join(
-    distinct(df[,c('municipio','uf')]),
-    #df %>% select(municipio, factor('uf')) %>% distinct(),
-    by = 'municipio'
-  ) %>% 
-  mutate(uf = factor(uf))
-fwrite(df.quanti.clusters.pad, paste0(path_pasta,'Bases geradas/variaveis_quanti_pad_agg.csv'), sep=';')
+  ) #%>% 
+#  left_join(
+#    distinct(df[,c('municipio','uf')]),
+#    #df %>% select(municipio, factor('uf')) %>% distinct(),
+#    by = 'municipio'
+#  ) %>% 
+#  mutate(uf = factor(uf))
+fwrite(df.quanti.clusters.pad, paste0(path_pasta,'Bases geradas/variaveis_quanti_pad_agg.csv'), sep=';', dec = '.')
 
 
 df.quanti.clusters %>% ver()
@@ -303,7 +303,7 @@ df.quanti.clusters %>% summary
 
 ## MESMO GRÁFICO, MAS COM AS MÉDIAS REAIS
 df.quanti.mean  <- df.quanti.clusters %>% 
-  select(-c(municipio,uf,retirar_cols)) %>% 
+  select(-c(municipio,retirar_cols)) %>% 
   group_by(cluster) %>% 
   summarise(
     across(
@@ -323,7 +323,7 @@ df.quanti.mean  <- df.quanti.clusters %>%
     share_is_single_lane = share_is_single_lane_1
   ) %>% 
   mutate(cluster = paste('Cluster', cluster))
-fwrite(df.quanti.mean, paste0(path_pasta,'Bases geradas/medias_var_cluster.csv'),sep=';',dec=',')
+fwrite(df.quanti.mean, paste0(path_pasta,'Bases geradas/medias_var_cluster.csv'),sep=';',dec='.')
 
 ver(df.quanti.mean,7)
 
@@ -425,7 +425,7 @@ opc_cluster[[opcao_clusters]]$centers
 
 # Análise dos clusters
 # ------------------------------------------------------------------------------
-fwrite(df.quanti.clusters, "/Users/felipebarreto/Desktop/TCC/Bases geradas/clusters_7.csv", sep = ';')
+fwrite(df.quanti.clusters, "/Users/felipebarreto/Desktop/TCC/Bases geradas/clusters_7.csv", sep = ';',dec='.')
 
 # Agora, vou nas variáveis categóricas para entender os agrupamentos!
 
