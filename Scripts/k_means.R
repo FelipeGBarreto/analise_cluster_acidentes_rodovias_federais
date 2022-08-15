@@ -67,12 +67,12 @@ df_quanti %>% filter(freq == min(df_quanti$freq))
 retirar_cols <- c('veiculos','feridos','pessoas','ignorados','share_tracado_via_tipo_2')
 
 var_quanti <- df_quanti %>% select(-retirar_cols) %>% column_to_rownames('municipio')
-corPlot(var_quanti[,2:ncol(var_quanti)], cex = .6)
+corPlot(var_quanti[,1:ncol(var_quanti)], cex = .6)
 
 # Verificando se há valores vazios. Como não há, vamos seguir em frente
 var_quanti %>% aggr(plot = F)
 ver(var_quanti)
-fwrite(var_quanti, paste0(path_pasta,'Bases geradas/variaveis_quanti_agg.csv'), sep=';', dec = '.')
+fwrite(var_quanti, paste0(path_pasta,'Bases geradas/variaveis_quanti_agg.csv'), sep=';', dec = ',', row.names = T)
 
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 # CLUSTER - TODOS OS ESTUDOS SERÃO FEITOS APÓS CLUSTERIZAR
@@ -82,7 +82,7 @@ fwrite(var_quanti, paste0(path_pasta,'Bases geradas/variaveis_quanti_agg.csv'), 
 var_quanti_pad <- scale(var_quanti) %>% data.frame()
 
 ver(var_quanti_pad, 10, name_table = "Dados Padronizados")
-fwrite(var_quanti_pad, paste0(path_pasta,'Bases geradas/variaveis_quanti_pad_agg.csv'), sep=';', dec = '.')
+fwrite(var_quanti_pad, paste0(path_pasta,'Bases geradas/variaveis_quanti_pad_agg.csv'), sep=';', dec = ',', row.names = T)
 
 var_quanti_pad %>% summary() # média = 0 e desvio-padrão = 1
 
@@ -205,7 +205,7 @@ opc_cluster[[opcao_clusters]]$withinss       # Soma dos quadrados dentro dos gru
 opc_cluster[[opcao_clusters]]$tot.withinss   # Soma dos quadrados dentro de todos os grupos
 opc_cluster[[opcao_clusters]]$size           # Número de observasções por grupo (tamanhos)
 
-# Percentual de Variância Explicada com 7 clusters (R2)
+# Percentual de Variância Explicada com 5 clusters (R2)
 (opc_cluster[[opcao_clusters]]$betweenss / opc_cluster[[opcao_clusters]]$totss)
 
 # Obs: Os dois resultados mais importantes são os tamanhos dos grupos e as médias
