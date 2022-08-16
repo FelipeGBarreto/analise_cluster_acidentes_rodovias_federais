@@ -146,6 +146,7 @@ plot_pct_var_explicada <- ggplotly(
   ggplot(pct_var_explicada, 
          aes(x = Clusters, y = Percentual)) +
     geom_point(color = "brown") + 
+    geom_text(aes(label=Percentual), hjust=-.25, nudge_y = 2, nudge_x = -.1, size=3.5) + 
     geom_line() +
     geom_vline(xintercept = 5,linetype = 3) + 
     labs(x = "Número Ótimo de Clusters",
