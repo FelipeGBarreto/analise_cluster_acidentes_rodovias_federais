@@ -140,6 +140,7 @@ for(i in 2:10){
     (kmeans(var_quanti_pad, centers = i)$betweenss)*100/totalss), 2)
 }
 
+### OBS: O % de variância explicada muda a cada vez q rodo abaixo
 pct_var_explicada %>% ver(10,"Variância Explicada por Cluster")
 
 plot_pct_var_explicada <- ggplotly(
@@ -181,7 +182,6 @@ grid.arrange(
   nrow = 3)
 
 
-
 # ESCOLHA DA OPÇÃO 3 (5 Clusters)
 opcao_clusters = 3
 fviz_cluster(opc_cluster[[opcao_clusters]],
@@ -207,7 +207,7 @@ opc_cluster[[opcao_clusters]]$tot.withinss   # Soma dos quadrados dentro de todo
 opc_cluster[[opcao_clusters]]$size           # Número de observasções por grupo (tamanhos)
 
 # Percentual de Variância Explicada com 5 clusters (R2)
-(opc_cluster[[opcao_clusters]]$betweenss / opc_cluster[[opcao_clusters]]$totss)
+(opc_cluster[[opcao_clusters]]$betweenss  / opc_cluster[[opcao_clusters]]$totss)
 
 # Obs: Os dois resultados mais importantes são os tamanhos dos grupos e as médias
 # Obs2: Lembrar que está padronizado!
@@ -316,7 +316,7 @@ df.quanti.mean  <- df.quanti.clusters %>%
     mortos = mortos_1,
     feridos_leves = feridos_leves_1,
     feridos_graves = feridos_graves_1,
-    ilesos = ilesos_1,
+    #ilesos = ilesos_1,
     freq = freq_1,
     share_tracado_via_tipo_1 = share_tracado_via_tipo_1_1,
     share_is_night = share_is_night_1,
@@ -350,10 +350,10 @@ df.quanti.mean.share <- df.quanti.mean %>%
   mutate(
     mortos = round(100 * mortos / freq, 2),
     feridos_leves = round(100 * feridos_leves / freq, 2),
-    feridos_graves = round(100 * feridos_graves / freq, 2),
-    ilesos = round(100 * ilesos / freq, 2)
+    feridos_graves = round(100 * feridos_graves / freq, 2)
+    #ilesos = round(100 * ilesos / freq, 2)
   ) %>% 
-  select(cluster,freq,ilesos,feridos_leves,feridos_graves,mortos) %>% 
+  select(cluster,freq,feridos_leves,feridos_graves,mortos) %>% 
   reshape2::melt(.) %>% 
   mutate(
     Cluster_Variavel = paste0(

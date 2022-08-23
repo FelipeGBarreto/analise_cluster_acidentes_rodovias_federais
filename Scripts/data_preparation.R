@@ -228,6 +228,11 @@ for(column in c('tracado_via_tipo_1','tracado_via_tipo_2','tracado_via_tipo_3'))
   df[[column]] = ifelse(df[[column]] %in% c(1,'1'), T, F)
 }
 
+df$feridos_leves <- as.numeric(df$feridos_leves)
+df$ilesos <- as.numeric(df$ilesos)
+
+df$feridos_leves <- df$feridos_leves + df$ilesos
+
 retirar_cols <- c(
   'id'
   ,'turno'
@@ -245,6 +250,7 @@ retirar_cols <- c(
   #,'tracado_via_tipo_2'
   #,'tracado_via_tipo_3'
   ,'tracado_via_NA'
+  ,'ilesos'
 )
 
 dataset_var_escolhidas <- df %>% select(-retirar_cols)
@@ -252,7 +258,7 @@ dataset_var_escolhidas <- df %>% select(-retirar_cols)
 fwrite(df, "/Users/felipebarreto/Desktop/dados_acidentes_tratados_completo.csv", sep = ',')
 fwrite(dataset_var_escolhidas, "/Users/felipebarreto/Desktop/dados_acidentes_tratados_selecionadas.csv", sep = ',')
 
-
+## FERIDOS LEVES + ILESOS = FERIDOS LEVES
 
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 # SHARE DE VARIÁVEIS CATEGÓRICAS // FUNÇÕES ESTÃO NO OUTRO SCRIPT (instalacao_pacotes)
@@ -286,12 +292,12 @@ ver(share_var_categ)
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
 # AGRUPANDO - Variáveis Quntitativas (métricas)
 #--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--#
+
 quantitative_variables <- c(
   'pessoas'
   ,'mortos'
   ,'feridos_leves'
   ,'feridos_graves'
-  ,'ilesos'
   ,'ignorados'
   ,'feridos'
   ,'veiculos'
@@ -328,7 +334,6 @@ names(var_quanti) <- c(
   'mortos',
   'feridos_leves',
   'feridos_graves', 
-  'ilesos',
   'ignorados',
   'feridos',
   'veiculos',
